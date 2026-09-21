@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-21",
+  "provider": "typesafe",
+  "model": "jev-1.13.0",
+  "fixture": "benchmark.mjs",
+  "noteCharacters": 562,
+  "candidateCount": 40,
+  "batchesPerRun": 1,
+  "elapsedMs": [
+    660,
+    216,
+    202
+  ],
+  "inputTokensPerRun": 5683,
+  "outputTokensPerRun": 754,
+  "usdPerMillionInputTokens": 0.042,
+  "usdPerMillionOutputTokens": 0,
+  "estimatedUsdPerRun": 0.000238686,
+  "scope": "Three sequential runs of a synthetic fixture; includes preparation and network, excludes UI and writes. Cost estimated from reported usage and published rate, not billing. Not an LLM comparison."
+}

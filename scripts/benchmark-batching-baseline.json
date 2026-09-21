@@ -1,0 +1,85 @@
+{
+  "date": "2026-09-21T20:26:22.996Z",
+  "provider": "typesafe",
+  "fixture": "synthetic 800 tags; not an accuracy comparison",
+  "results": [
+    {
+      "round": 1,
+      "mode": "40 tags sequential",
+      "elapsedMs": 4110,
+      "candidates": 800,
+      "batches": 20,
+      "maxBatchTags": 40,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 116310,
+      "outputTokens": 15080
+    },
+    {
+      "round": 1,
+      "mode": "byte bounded sequential",
+      "elapsedMs": 2144,
+      "candidates": 800,
+      "batches": 9,
+      "maxBatchTags": 95,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 112614,
+      "outputTokens": 15146
+    },
+    {
+      "round": 1,
+      "mode": "byte bounded parallel",
+      "elapsedMs": 2093,
+      "candidates": 800,
+      "batches": 9,
+      "maxBatchTags": 95,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 112614,
+      "outputTokens": 15146
+    },
+    {
+      "round": 2,
+      "mode": "byte bounded parallel",
+      "elapsedMs": 2062,
+      "candidates": 800,
+      "batches": 9,
+      "maxBatchTags": 95,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 112614,
+      "outputTokens": 15146
+    },
+    {
+      "round": 2,
+      "mode": "byte bounded sequential",
+      "elapsedMs": 2088,
+      "candidates": 800,
+      "batches": 9,
+      "maxBatchTags": 95,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 112614,
+      "outputTokens": 15146
+    },
+    {
+      "round": 2,
+      "mode": "40 tags sequential",
+      "elapsedMs": 3666,
+      "candidates": 800,
+      "batches": 20,
+      "maxBatchTags": 40,
+      "models": [
+        "jev-1.13.0"
+      ],
+      "inputTokens": 116310,
+      "outputTokens": 15080
+    }
+  ]
+}

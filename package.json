@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-tag-match",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quickly find the right tags from your vault for a given note.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/nweii/tag-match.git" },
+  "bugs": { "url": "https://github.com/nweii/tag-match/issues" },
+  "engines": { "node": ">=22" },
+  "type": "module",
+  "bin": { "tag-match": "dist/tag-match.mjs" },
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "test": "node --experimental-strip-types --loader ./tests/fixtures/obsidian-loader.mjs --test tests/*.test.ts",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test && npm run build && node dist/tag-match.mjs --help",
+    "version": "node version-bump.mjs"
+  },
+  "dependencies": { "yaml": "^2.8.1" },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.4.0",
+    "esbuild": "0.25.5",
+    "globals": "^17.6.0",
+    "jiti": "^2.6.1",
+    "obsidian": "^1.13.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.59.1"
+  }
+}

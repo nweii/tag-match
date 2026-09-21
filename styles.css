@@ -1,0 +1,15 @@
+/* Keeps native Obsidian settings and review lists readable at narrow window widths. */
+.tag-match-review { max-width: 760px; }
+.tag-match-list { max-height: 45vh; overflow-y: auto; border-block: 1px solid var(--background-modifier-border); }
+.tag-match-candidate { padding: var(--size-4-1) var(--size-4-2); overflow-wrap: anywhere; }
+.tag-match-review .setting-item-name { overflow-wrap: anywhere; }
+.tag-match-review .setting-item-control { flex-shrink: 0; }
+.tag-match-result { display: flex; gap: var(--size-4-3); align-items: flex-start; padding: var(--size-4-2); cursor: pointer; }
+.tag-match-result input { margin-top: var(--size-4-1); flex: 0 0 auto; }
+.tag-match-result-copy { min-width: 0; overflow-wrap: anywhere; }
+.tag-match-result-name { color: var(--text-normal); }
+.tag-match-agent-instruction { flex-direction: column; align-items: stretch; }
+.tag-match-agent-instruction .setting-item-control { width: 100%; flex-wrap: wrap; align-items: center; }
+.tag-match-agent-preview { flex-basis: 100%; min-width: 0; text-align: start; font-size: var(--font-ui-smaller); }
+.tag-match-agent-preview summary { cursor: pointer; color: var(--text-muted); line-height: var(--line-height-normal); }
+.tag-match-agent-preview code { display: block; margin-top: var(--size-4-2); padding: var(--size-4-2); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--background-secondary); }

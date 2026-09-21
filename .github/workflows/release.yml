@@ -1,0 +1,49 @@
+# Builds an attested draft release when a semantic-version tag is pushed.
+name: Release Obsidian plugin
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Verify release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node -e "const m=require('./manifest.json'); if(m.version!==process.env.RELEASE_TAG) throw new Error('Tag must match manifest version')"
+      - name: Package optional agent CLI
+        run: |
+          cd dist/tag-match
+          zip -9 ../tag-match.zip main.js manifest.json styles.css
+          cd ../tag-match-agent
+          zip -9 ../tag-match-agent.zip tag-match.mjs AGENT-CLI.md
+      - name: Generate artifact attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+            dist/tag-match.zip
+            dist/tag-match-agent.zip
+            dist/tag-match-agent/tag-match.mjs
+            dist/tag-match-agent/AGENT-CLI.md
+            scripts/install-cli.mjs
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --draft main.js manifest.json styles.css dist/tag-match.zip dist/tag-match-agent.zip dist/tag-match-agent/tag-match.mjs dist/tag-match-agent/AGENT-CLI.md scripts/install-cli.mjs
