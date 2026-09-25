@@ -9,13 +9,13 @@ import { OPEN_ROUTER_ENDPOINT, resolveProvider, TYPE_SAFE_ENDPOINT } from '../sr
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', ...values });
 const note = { title: 'A note', body: 'Design systems and typography.', existingTags: ['existing'] };
 
-test('automatic mode checks all small pools, then at least 100 or the top 20 percent', () => {
+test('automatic mode checks all small pools, then at least 250 or the top 20 percent', () => {
   const size = (eligible: number) => selectCandidates(
     Array.from({ length: eligible }, (_, index) => ({ tag: `tag-${index}`, count: eligible - index })),
     [], config({ poolMode: 'auto' }),
   ).tags.length;
-  assert.deepEqual([size(0), size(1), size(100), size(101), size(500), size(501), size(2452)],
-    [0, 1, 100, 100, 100, 101, 491]);
+  assert.deepEqual([size(0), size(1), size(250), size(251), size(1250), size(1251), size(2452)],
+    [0, 1, 250, 250, 250, 251, 491]);
 });
 
 test('automatic mode calculates its floor after exclusions and existing tags', () => {
@@ -34,6 +34,9 @@ test('percentage uses eligible distinct tags and scales beyond 25', () => {
   const pool = selectCandidates(inventory, note.existingTags, config({ poolPercent: 20, excludedTags: 'private' }));
   assert.equal(pool.eligible, 2450);
   assert.equal(pool.tags.length, 490);
+  assert.equal(pool.frequent, 343);
+  assert.equal(pool.discovery, 147);
+  assert.ok(pool.tags.some(item => item.reason === 'discovery' && item.count < 2000));
   assert.equal(pool.excluded, 1);
   assert.equal(pool.existing, 1);
 });
@@ -44,9 +47,12 @@ test('count and all modes sort, merge, and apply exact and branch exclusions', (
     { tag: 'Topic', count: 2 }, { tag: '#topic', count: 3 }, { tag: 'rare', count: 1 },
   ];
   const counted = selectCandidates(inventory, [], config({ poolMode: 'count', poolCount: 1, excludedTags: 'work/*' }));
-  assert.deepEqual(counted.tags, [{ tag: 'working', count: 8 }]);
+  assert.deepEqual(counted.tags, [{ tag: 'working', count: 8, reason: 'discovery' }]);
   const all = selectCandidates(inventory, [], config({ poolMode: 'all', excludedTags: 'work/*' }));
-  assert.deepEqual(all.tags, [{ tag: 'working', count: 8 }, { tag: 'Topic', count: 5 }, { tag: 'rare', count: 1 }]);
+  assert.deepEqual(all.tags, [
+    { tag: 'working', count: 8, reason: 'all' }, { tag: 'Topic', count: 5, reason: 'all' },
+    { tag: 'rare', count: 1, reason: 'all' },
+  ]);
 });
 
 test('minimum-use mode includes the cutoff and removes exclusions and existing tags', () => {
@@ -57,10 +63,46 @@ test('minimum-use mode includes the cutoff and removes exclusions and existing t
   const pool = selectCandidates(inventory, ['existing'], config({
     poolMode: 'minimum', minimumUses: 2, excludedTags: 'excluded',
   }));
-  assert.deepEqual(pool.tags, [{ tag: 'above', count: 3 }, { tag: 'at-cutoff', count: 2 }]);
+  assert.deepEqual(pool.tags, [
+    { tag: 'above', count: 3, reason: 'minimum' }, { tag: 'at-cutoff', count: 2, reason: 'minimum' },
+  ]);
   assert.equal(pool.excluded, 1);
   assert.equal(pool.existing, 1);
   assert.equal(pool.eligible, 3);
+});
+
+test('mixed shortlist is stable for one note and explores different less-used tags for another', () => {
+  const inventory = Array.from({ length: 100 }, (_, index) => ({ tag: `tag-${index}`, count: 100 - index }));
+  const first = selectCandidates(inventory, [], config({ poolMode: 'count', poolCount: 10 }), 'note-a');
+  const repeated = selectCandidates(inventory, [], config({ poolMode: 'count', poolCount: 10 }), 'note-a');
+  const other = selectCandidates(inventory, [], config({ poolMode: 'count', poolCount: 10 }), 'note-b');
+  assert.deepEqual(first.tags, repeated.tags);
+  assert.equal(first.frequent, 7);
+  assert.equal(first.discovery, 3);
+  assert.deepEqual(first.tags.slice(0, 7).map(item => item.tag), inventory.slice(0, 7).map(item => item.tag));
+  assert.ok(first.tags.slice(7).some(item => item.count <= 31));
+  assert.notDeepEqual(first.tags.slice(7).map(item => item.tag), other.tags.slice(7).map(item => item.tag));
+  assert.equal(new Set(first.tags.map(item => item.tag)).size, first.tags.length);
+});
+
+test('most-used share supports fully sampled, mixed, and fully usage-ranked selections', () => {
+  const inventory = Array.from({ length: 100 }, (_, index) => ({ tag: `tag-${index}`, count: 100 - index }));
+  const selected = (mostUsedPercent: number) => selectCandidates(inventory, [],
+    config({ poolMode: 'count', poolCount: 10, mostUsedPercent }), 'note');
+  assert.deepEqual([0, 70, 100].map(share => {
+    const pool = selected(share);
+    return [pool.frequent, pool.discovery];
+  }), [[0, 10], [7, 3], [10, 0]]);
+});
+
+test('candidate inspection explains exclusions, existing tags, and tags outside the shortlist', () => {
+  const pool = selectCandidates([
+    { tag: 'excluded', count: 5 }, { tag: 'existing', count: 4 }, { tag: 'included', count: 3 },
+    { tag: 'outside', count: 2 },
+  ], ['existing'], config({ poolMode: 'count', poolCount: 1, excludedTags: 'excluded' }), 'note');
+  assert.deepEqual(Object.fromEntries(pool.inspected.map(item => [item.tag, item.status])), {
+    excluded: 'excluded', existing: 'already-present', included: 'included', outside: 'outside-pool',
+  });
 });
 
 test('batches pack independent Noul questions up to the byte budget', () => {
@@ -132,6 +174,9 @@ test('existing configuration migrates to TypeSafe without changing its key or mo
 
 test('normalization defaults new configs to automatic and preserves every explicit saved mode', () => {
   assert.equal(normalizeConfig({}).poolMode, 'auto');
+  assert.equal(normalizeConfig({}).mostUsedPercent, 70);
+  assert.equal(normalizeConfig({ mostUsedPercent: -20 }).mostUsedPercent, 0);
+  assert.equal(normalizeConfig({ mostUsedPercent: 120 }).mostUsedPercent, 100);
   for (const poolMode of ['auto', 'percent', 'count', 'minimum', 'all'] as const) {
     assert.equal(normalizeConfig({ poolMode }).poolMode, poolMode);
   }

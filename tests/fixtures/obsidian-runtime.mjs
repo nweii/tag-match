@@ -13,10 +13,13 @@ export class TestElement {
     return child;
   }
   createDiv(cls = '') { return this.createEl('div', typeof cls === 'string' ? { cls } : cls); }
+  createSpan(options = {}) { return this.createEl('span', typeof options === 'string' ? { cls: options } : options); }
+  setAttr(name, value) { this[name] = value; }
   addClass(value) { this.className += `${this.className ? ' ' : ''}${value}`; }
+  setText(value) { this.text = value; this.children = []; }
   appendText(value) { this.children.push(new TestElement('#text', { text: value })); }
   empty() { this.children = []; }
-  all(tag) { return this.children.flatMap(child => [...(child.tagName === tag.toUpperCase() ? [child] : []), ...child.all(tag)]); }
+  all(tag) { return this.children.flatMap(child => [...(child.tagName === tag.toUpperCase() ? [child] : []), ...(typeof child.all === 'function' ? child.all(tag) : [])]); }
   get textContent() { return this.text + this.children.map(child => child.textContent).join(''); }
 }
 
@@ -29,9 +32,18 @@ export class SecretComponent {
   setValue(value) { this.element.value = value; return this; }
   onChange(handler) { this.element.change = handler; return this; }
 }
+export class SliderComponent {
+  constructor(container) { this.sliderEl = container.createEl('input'); }
+  setLimits(min, max, step) { Object.assign(this.sliderEl, { min, max, step }); return this; }
+  setValue(value) { this.sliderEl.value = value; return this; }
+  setDisplayFormat(format) { this.format = format; return this; }
+  onChange(handler) { this.sliderEl.change = handler; return this; }
+  then(callback) { callback(this); return this; }
+}
 export class PluginSettingTab {
   constructor(app, plugin) { this.app = app; this.plugin = plugin; }
   update() {}
+  refreshDomState() {}
   renderSettingDefinition(definition) {
     const setting = new Setting();
     setting.setName(definition.name ?? '').setDesc(definition.desc ?? '');
@@ -39,14 +51,28 @@ export class PluginSettingTab {
       dropdown.addOptions(definition.control.options).setValue(String(this.getControlValue(definition.control.key)))
         .onChange(value => this.setControlValue(definition.control.key, value));
     });
+    if (definition.control?.type === 'slider') setting.addSlider(slider => {
+      slider.setLimits(definition.control.min, definition.control.max, definition.control.step)
+        .setValue(Number(this.getControlValue(definition.control.key)))
+        .onChange(value => this.setControlValue(definition.control.key, value));
+    });
     definition.render?.(setting);
     return setting;
   }
 }
 export class Setting {
-  constructor() { this.settingEl = new TestElement(); this.controlEl = this.settingEl.createDiv('setting-item-control'); }
+  constructor() {
+    this.settingEl = new TestElement(); this.nameEl = this.settingEl.createDiv('setting-item-name');
+    this.descEl = this.settingEl.createDiv('setting-item-description');
+    this.controlEl = this.settingEl.createDiv('setting-item-control');
+  }
   setName() { return this; }
-  setDesc(value) { this.description = value; return this; }
+  setDesc(value) {
+    this.description = value;
+    if (Array.isArray(value?.children)) { this.descEl.text = value.text ?? ''; this.descEl.children = value.children; }
+    else this.descEl.setText(value?.textContent ?? String(value));
+    return this;
+  }
   addButton(callback) {
     const element = this.controlEl.createEl('button');
     const button = { setButtonText: text => { element.text = text; return button; }, onClick: handler => { element.click = handler; return button; } };
@@ -61,6 +87,7 @@ export class Setting {
     };
     callback(dropdown); return this;
   }
+  addSlider(callback) { callback(new SliderComponent(this.controlEl)); return this; }
   addSearch() { return this; }
 }
 export function getAllTags() { return {}; }

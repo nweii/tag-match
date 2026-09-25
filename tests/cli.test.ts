@@ -40,12 +40,24 @@ test('preview preserves a saved literal percentage after exclusions and existing
   assert.equal(result.stderr, '');
   const output: unknown = JSON.parse(result.stdout);
   assert.ok(record(output) && record(output.pool) && Array.isArray(output.pool.tags));
-  assert.deepEqual(output.pool.tags.map(tag => record(tag) ? tag.tag : undefined), ['popular', 'middle']);
+  const poolTags = output.pool.tags as unknown[];
+  assert.equal(poolTags.length, 2);
+  const frequent: unknown = poolTags[0];
+  const discovery: unknown = poolTags[1];
+  assert.ok(record(frequent) && frequent.tag === 'popular' && frequent.reason === 'frequent');
+  assert.ok(record(discovery) && discovery.reason === 'discovery');
+  assert.ok(Array.isArray(output.pool.inspected));
+  const inspected = output.pool.inspected as unknown[];
+  assert.deepEqual(Object.fromEntries(inspected.map(item => record(item) ? [item.tag, item.status] : [])), {
+    popular: 'included', existing: 'already-present', 'private/one': 'excluded',
+    middle: discovery.tag === 'middle' ? 'included' : 'outside-pool',
+    rare: discovery.tag === 'rare' ? 'included' : 'outside-pool',
+  });
   assert.equal(output.pool.eligible, 3);
   assert.equal(output.batches, 1);
 });
 
-test('preview uses the automatic 100-tag floor after exclusions and existing tags', async () => {
+test('preview checks every eligible tag below the automatic 250-tag floor', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-auto-'));
   const configPath = join(directory, 'data.json');
   await writeFile(configPath, JSON.stringify({ poolMode: 'auto', excludedTags: 'excluded' }));
@@ -59,7 +71,7 @@ test('preview uses the automatic 100-tag floor after exclusions and existing tag
   assert.equal(result.code, 0);
   const output = JSON.parse(result.stdout) as { pool: { eligible: number; tags: unknown[] } };
   assert.equal(output.pool.eligible, 101);
-  assert.equal(output.pool.tags.length, 100);
+  assert.equal(output.pool.tags.length, 101);
 });
 
 test('CLI review and apply form a snapshot-bound non-network write workflow', async () => {

@@ -7,10 +7,11 @@ import { applySuggestions, inventory, readNote } from './vault.ts';
 import { suggest } from './client.ts';
 import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
+import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
 
 export default class TagMatchPlugin extends Plugin {
   declare settings: Config;
-  agentCliInstalled = false;
+  agentCliStatus: AgentCliStatus = { kind: 'missing' };
   private saveQueue: Promise<void> = Promise.resolve();
   private reviews = new Set<ReviewModal>();
   private runs = new Map<string, AbortController>();
@@ -51,7 +52,13 @@ export default class TagMatchPlugin extends Plugin {
         this.app.vault.adapter.exists(`${pluginDirectory}/tag-match.mjs`),
         this.app.vault.adapter.exists(`${pluginDirectory}/AGENT-CLI.md`),
       ]);
-      this.agentCliInstalled = cli && guide;
+      if (!cli || !guide) this.agentCliStatus = { kind: 'missing' };
+      else {
+        try {
+          const source = await this.app.vault.adapter.read(`${pluginDirectory}/tag-match.mjs`);
+          this.agentCliStatus = resolveAgentCliStatus(this.manifest.version, source, true);
+        } catch { this.agentCliStatus = { kind: 'unknown' }; }
+      }
     }
     this.addSettingTab(new TagMatchSettingsTab(this.app, this));
     this.addCommand({ id: 'find-matching-tags', name: 'Review tags for current note',

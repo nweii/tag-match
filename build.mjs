@@ -3,6 +3,8 @@ import { build } from 'esbuild';
 import { chmod, mkdir, copyFile, readFile, rm } from 'node:fs/promises';
 
 const yamlLicense = await readFile('node_modules/yaml/LICENSE', 'utf8');
+const manifest = JSON.parse(await readFile('manifest.json', 'utf8'));
+const version = String(manifest.version);
 const licenseFooter = `/*\nBundled dependency notice for yaml:\n${yamlLicense}\n*/`;
 
 await build({ entryPoints: ['src/main.ts'], outfile: 'main.js', bundle: true,
@@ -11,7 +13,8 @@ await build({ entryPoints: ['src/main.ts'], outfile: 'main.js', bundle: true,
   footer: { js: licenseFooter } });
 await build({ entryPoints: ['src/cli.ts'], outfile: 'dist/tag-match.mjs', bundle: true,
   format: 'esm', platform: 'node', target: 'node22',
-  banner: { js: '#!/usr/bin/env node\n// Tag Match: command-line interface for shared tag evaluation.\nimport { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
+  define: { __TAG_MATCH_VERSION__: JSON.stringify(version) },
+  banner: { js: `#!/usr/bin/env node\n// tag-match-cli-version: ${version}\n// Tag Match: command-line interface for shared tag evaluation.\nimport { createRequire } from "node:module"; const require = createRequire(import.meta.url);` },
   footer: { js: licenseFooter } });
 await chmod('dist/tag-match.mjs', 0o755);
 await rm('dist/tag-match', { recursive: true, force: true });

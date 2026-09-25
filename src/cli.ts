@@ -3,16 +3,19 @@ import { readFile } from 'node:fs/promises';
 import { stdin, stdout, stderr, argv } from 'node:process';
 import { normalizeConfig, record, type Config } from './config.ts';
 import { evaluate, suggest, type HttpResponse, type Transport } from './client.ts';
-import { buildBatches, selectCandidates, type EvaluationRequest, type Note, type TagCount } from './core.ts';
+import { buildBatches, noteSeed, selectCandidates, type EvaluationRequest, type Note, type TagCount } from './core.ts';
 import { applyReviewPlan, parseReviewPlan, quickApplyFile, reviewFile } from './cli-workflow.ts';
 import { resolveProvider } from './provider.ts';
 import { resolveCliCredential } from './credentials.ts';
 
+declare const __TAG_MATCH_VERSION__: string;
+export const CLI_VERSION = typeof __TAG_MATCH_VERSION__ === 'string' ? __TAG_MATCH_VERSION__ : '0.0.0-test';
+
 const HELP = `Usage: tag-match <command> --config PATH
 
 Commands:
-  preview   Report candidate coverage without using the network
-  suggest   Evaluate candidate tags with the saved Jev provider
+  preview   Report tag selection without using the network
+  suggest   Evaluate selected tags with the saved Jev provider
   review    Analyze a Markdown file and return a review plan without writing
   apply     Apply explicit selections from a review plan without using the network
   quick-apply  Analyze a Markdown file and add complete recommendations directly
@@ -39,12 +42,14 @@ File workflow:
   From that vault directory, run "obsidian tags path=folder/note.md format=json" with a vault-relative path.
   Map its records with rows.map(item => item.tag) and pass those strings as existingTags. --note remains an absolute Markdown path.
 
-Candidate range:
-  The default automatic mode checks all eligible tags up to 100. Above 100, it checks at least 100 or the top 20%, whichever is larger.
-  Exclusions and tags already on the note are removed before this count. Saved percent mode remains a literal percentage.
+Tag selection:
+  Default (poolMode "auto") considers up to 250 tags, or 20% of all tags if that is more.
+  In default, percentage, and number modes, mostUsedPercent sets the share selected by use count; the rest is sampled.
+  mostUsedPercent accepts 0 through 100 and defaults to 70.
+  Exclusions and tags already on the note are removed before this count. All and minimum-use modes remain literal.
 
 Successful output:
-  preview returns pool coverage and batch counts. suggest returns ranked judgments and recommendations.
+  preview returns selection reasons, inspection statuses, coverage, and batch counts. suggest also returns judgments and recommendations.
   review returns status "review-ready", a snapshot identity, evaluated tags, and proposed tags; it contains no API key.
   apply returns status "applied" or "no-op", path, and addedTags. quick-apply returns the same plus its analysis result.
   evaluate returns the selected provider's Decisions API response. All success output is one JSON value on stdout; errors use stderr and exit nonzero.
@@ -68,6 +73,7 @@ async function readStdin(): Promise<unknown> {
 
 function parseArgs(args: string[]): { command: string; configPath: string; notePath: string } {
   if (args.includes('--help') || args.includes('-h')) return { command: 'help', configPath: '', notePath: '' };
+  if (args.includes('--version') || args.includes('-v')) return { command: 'version', configPath: '', notePath: '' };
   const command = args[0] ?? '';
   const configIndex = args.indexOf('--config');
   const configPath = configIndex >= 0 ? args[configIndex + 1] ?? '' : '';
@@ -137,6 +143,7 @@ export const fetchTransport: Transport = async (request, apiKey, signal, endpoin
 export async function run(args: string[]): Promise<unknown> {
   const parsed = parseArgs(args);
   if (parsed.command === 'help') return { help: HELP };
+  if (parsed.command === 'version') return { version: CLI_VERSION };
   let config = await loadConfig(parsed.configPath);
   const input = await readStdin();
   if (['suggest', 'review', 'quick-apply', 'evaluate'].includes(parsed.command)) {
@@ -159,7 +166,7 @@ export async function run(args: string[]): Promise<unknown> {
   }
   const { note, tags } = tagInput(input);
   if (parsed.command === 'preview') {
-    const pool = selectCandidates(tags, note.existingTags, config);
+    const pool = selectCandidates(tags, note.existingTags, config, noteSeed(note));
     const prepared = buildBatches(note, pool, config);
     return { pool, truncated: prepared.truncated, sentChars: prepared.sentChars, batches: prepared.batches.length };
   }
@@ -167,7 +174,8 @@ export async function run(args: string[]): Promise<unknown> {
 }
 
 if (import.meta.url === `file://${argv[1]}`) {
-  if (argv.slice(2).some(arg => arg === '--help' || arg === '-h')) stdout.write(`${HELP}\n`);
+  if (argv.slice(2).some(arg => arg === '--version' || arg === '-v')) stdout.write(`${CLI_VERSION}\n`);
+  else if (argv.slice(2).some(arg => arg === '--help' || arg === '-h')) stdout.write(`${HELP}\n`);
   else run(argv.slice(2)).then(result => { stdout.write(`${JSON.stringify(result)}\n`); })
     .catch((error: unknown) => {
       stderr.write(`${error instanceof Error ? error.message : 'Tag Match failed.'}\n`);

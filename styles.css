@@ -13,3 +13,8 @@
 .tag-match-agent-preview { flex-basis: 100%; min-width: 0; text-align: start; font-size: var(--font-ui-smaller); }
 .tag-match-agent-preview summary { cursor: pointer; color: var(--text-muted); line-height: var(--line-height-normal); }
 .tag-match-agent-preview code { display: block; margin-top: var(--size-4-2); padding: var(--size-4-2); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--background-secondary); }
+.tag-match-cli-path { display: block; margin-top: var(--size-4-2); font-size: var(--font-ui-smaller); overflow-wrap: anywhere; user-select: text; }
+.tag-match-guidance-preview code { max-height: 16rem; overflow: auto; }
+.tag-match-selection-mix { display: flex; flex-wrap: wrap; align-items: center; gap: var(--size-4-2); }
+.tag-match-selection-mix span { font-size: var(--font-ui-smaller); }
+.tag-match-selection-mix input[type='range'] { flex: 1 1 8rem; min-width: 8rem; }

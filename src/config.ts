@@ -11,6 +11,7 @@ export interface Config {
   poolPercent: number;
   poolCount: number;
   minimumUses: number;
+  mostUsedPercent: number;
   maxTagsToAdd: number;
   minProbability: number;
   maxBodyChars: number;
@@ -23,7 +24,8 @@ export const DEFAULTS: Config = {
   provider: 'typesafe', typeSafeSecretId: '', apiKey: '', model: 'jev-latest', openRouterApiKey: '',
   openRouterSecretId: '', openRouterModel: 'typesafe/jev-1.13',
   poolMode: 'auto', poolPercent: 20,
-  poolCount: 100, minimumUses: 2, maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
+  poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
+  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
   excludedTags: '', guidance: '', definitions: '',
 };
 
@@ -48,7 +50,8 @@ export function normalizeConfig(value: unknown): Config {
     result.poolMode = raw.poolMode;
   }
   const limits = {
-    poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], maxTagsToAdd: [1, 1000],
+    poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
+    maxTagsToAdd: [1, 1000],
     minProbability: [0, 1], maxBodyChars: [200, 24000],
   } as const;
   for (const key of Object.keys(limits) as (keyof typeof limits)[]) {

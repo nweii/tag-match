@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-21T21:19:17.809Z",
+  "provider": "typesafe",
+  "model": "jev-1.13.0",
+  "fixture": "synthetic 800 tags; same prompt and per-tag noul judgments; not an accuracy comparison",
+  "byteCaps": [55000, 110000, 165000, 220000],
+  "rounds": 2,
+  "results": [
+    {"bodyChars":171,"round":1,"byteCap":55000,"elapsedMs":2841,"answers":800,"requests":9,"failedRequests":0,"maxRequestBytes":54757,"maxBatchTags":95,"inputTokens":112614,"outputTokens":15146},
+    {"bodyChars":171,"round":1,"byteCap":110000,"elapsedMs":1585,"answers":800,"requests":5,"failedRequests":0,"maxRequestBytes":109971,"maxBatchTags":192,"inputTokens":111270,"outputTokens":15533},
+    {"bodyChars":171,"round":1,"byteCap":165000,"elapsedMs":1310,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":164680,"maxBatchTags":287,"inputTokens":110598,"outputTokens":15682},
+    {"bodyChars":171,"round":1,"byteCap":220000,"elapsedMs":1307,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":219953,"maxBatchTags":383,"inputTokens":110598,"outputTokens":15746},
+    {"bodyChars":171,"round":2,"byteCap":220000,"elapsedMs":1436,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":219953,"maxBatchTags":383,"inputTokens":110598,"outputTokens":15746},
+    {"bodyChars":171,"round":2,"byteCap":165000,"elapsedMs":1213,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":164680,"maxBatchTags":287,"inputTokens":110598,"outputTokens":15682},
+    {"bodyChars":171,"round":2,"byteCap":110000,"elapsedMs":1562,"answers":800,"requests":5,"failedRequests":0,"maxRequestBytes":109971,"maxBatchTags":192,"inputTokens":111270,"outputTokens":15533},
+    {"bodyChars":171,"round":2,"byteCap":55000,"elapsedMs":2176,"answers":800,"requests":9,"failedRequests":0,"maxRequestBytes":54757,"maxBatchTags":95,"inputTokens":112614,"outputTokens":15146},
+    {"bodyChars":16000,"round":1,"byteCap":55000,"elapsedMs":3227,"answers":800,"requests":12,"failedRequests":0,"maxRequestBytes":54960,"maxBatchTags":68,"inputTokens":146766,"outputTokens":15128},
+    {"bodyChars":16000,"round":1,"byteCap":110000,"elapsedMs":1688,"answers":800,"requests":5,"failedRequests":0,"maxRequestBytes":110018,"maxBatchTags":164,"inputTokens":125080,"outputTokens":15470},
+    {"bodyChars":16000,"round":1,"byteCap":165000,"elapsedMs":1498,"answers":800,"requests":4,"failedRequests":0,"maxRequestBytes":164962,"maxBatchTags":260,"inputTokens":121982,"outputTokens":15653},
+    {"bodyChars":16000,"round":1,"byteCap":220000,"elapsedMs":1449,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":219796,"maxBatchTags":355,"inputTokens":118884,"outputTokens":15691},
+    {"bodyChars":16000,"round":2,"byteCap":220000,"elapsedMs":1260,"answers":800,"requests":3,"failedRequests":0,"maxRequestBytes":219796,"maxBatchTags":355,"inputTokens":118884,"outputTokens":15691},
+    {"bodyChars":16000,"round":2,"byteCap":165000,"elapsedMs":1503,"answers":800,"requests":4,"failedRequests":0,"maxRequestBytes":164962,"maxBatchTags":260,"inputTokens":121982,"outputTokens":15653},
+    {"bodyChars":16000,"round":2,"byteCap":110000,"elapsedMs":1573,"answers":800,"requests":5,"failedRequests":0,"maxRequestBytes":110018,"maxBatchTags":164,"inputTokens":125080,"outputTokens":15470},
+    {"bodyChars":16000,"round":2,"byteCap":55000,"elapsedMs":2851,"answers":800,"requests":12,"failedRequests":0,"maxRequestBytes":54960,"maxBatchTags":68,"inputTokens":146766,"outputTokens":15128}
+  ],
+  "consistency": [
+    {"bodyChars":171,"byteCap":55000,"compared":800,"meanAbsoluteDifference":0.0112,"maxAbsoluteDifference":0.08},
+    {"bodyChars":171,"byteCap":110000,"compared":800,"meanAbsoluteDifference":0.01115,"maxAbsoluteDifference":0.08},
+    {"bodyChars":171,"byteCap":165000,"compared":800,"meanAbsoluteDifference":0.0112375,"maxAbsoluteDifference":0.08},
+    {"bodyChars":171,"byteCap":220000,"compared":800,"meanAbsoluteDifference":0.0122125,"maxAbsoluteDifference":0.09},
+    {"bodyChars":16000,"byteCap":55000,"compared":800,"meanAbsoluteDifference":0.0138875,"maxAbsoluteDifference":0.09},
+    {"bodyChars":16000,"byteCap":110000,"compared":800,"meanAbsoluteDifference":0.0142375,"maxAbsoluteDifference":0.09},
+    {"bodyChars":16000,"byteCap":165000,"compared":800,"meanAbsoluteDifference":0.01295,"maxAbsoluteDifference":0.11},
+    {"bodyChars":16000,"byteCap":220000,"compared":800,"meanAbsoluteDifference":0.01285,"maxAbsoluteDifference":0.08}
+  ]
+}

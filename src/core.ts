@@ -4,8 +4,15 @@ import { resolveProvider } from './provider.ts';
 
 export interface TagCount { tag: string; count: number }
 export interface Note { title: string; body: string; existingTags: string[]; description?: string }
+export type SelectionReason = 'frequent' | 'discovery' | 'all' | 'minimum';
+export interface CandidateTag extends TagCount { reason: SelectionReason }
+export interface CandidateInspection extends TagCount {
+  status: 'included' | 'excluded' | 'already-present' | 'outside-pool';
+  reason?: SelectionReason;
+}
 export interface CandidatePool {
-  tags: TagCount[]; total: number; excluded: number; existing: number; eligible: number;
+  tags: CandidateTag[]; inspected: CandidateInspection[];
+  total: number; excluded: number; existing: number; eligible: number; frequent: number; discovery: number;
 }
 export interface Judgment { tag: string; probability: number }
 export interface EvaluationRequest {
@@ -29,7 +36,48 @@ export function isExcluded(tag: string, rules: string[]): boolean {
     : key === rule);
 }
 
-export function selectCandidates(inventory: TagCount[], existingTags: string[], config: Config): CandidatePool {
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function noteSeed(note: Pick<Note, 'title' | 'body' | 'description'>): string {
+  return stableHash(`${note.title}\u0000${note.description ?? ''}\u0000${note.body}`).toString(36);
+}
+
+function discoverySample(items: TagCount[], count: number, seed: string): TagCount[] {
+  if (!count || !items.length) return [];
+  const levels: TagCount[][] = [];
+  for (const item of items) {
+    const current = levels.at(-1);
+    if (current?.[0]?.count === item.count) current.push(item);
+    else levels.push([item]);
+  }
+  const bandCount = Math.min(3, levels.length);
+  const bands = Array.from({ length: bandCount }, (_, band) => levels
+    .slice(Math.floor(levels.length * band / bandCount), Math.floor(levels.length * (band + 1) / bandCount))
+    .flat()
+    .map(item => ({ item, order: stableHash(`${seed}\u0000${item.tag}`) }))
+    .sort((a, b) => a.order - b.order || a.item.tag.localeCompare(b.item.tag))
+    .map(({ item }) => item));
+  const selected: TagCount[] = [];
+  for (let index = 0; selected.length < count; index++) {
+    let added = false;
+    for (const band of bands) {
+      const item = band[index];
+      if (item && selected.length < count) { selected.push(item); added = true; }
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
+export function selectCandidates(inventory: TagCount[], existingTags: string[], config: Config,
+  seed = ''): CandidatePool {
   const merged = new Map<string, TagCount>();
   for (const item of inventory) {
     const tag = normalizeTag(item.tag);
@@ -43,21 +91,43 @@ export function selectCandidates(inventory: TagCount[], existingTags: string[], 
   const existing = new Set(existingTags.map(tagKey));
   let excludedCount = 0;
   let existingCount = 0;
-  const eligible = [...merged.values()].filter(item => {
+  const ranked = [...merged.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  const eligible = ranked.filter(item => {
     if (isExcluded(item.tag, rules)) { excludedCount++; return false; }
     if (existing.has(tagKey(item.tag))) { existingCount++; return false; }
     return true;
-  }).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-  const automaticCount = Math.min(eligible.length, Math.max(100, Math.ceil(eligible.length * 0.2)));
-  const selected = config.poolMode === 'minimum'
-    ? eligible.filter(item => item.count >= config.minimumUses)
-    : eligible.slice(0, config.poolMode === 'all' ? eligible.length
-      : config.poolMode === 'count' ? config.poolCount
-      : config.poolMode === 'auto' ? automaticCount
-      : Math.ceil(eligible.length * config.poolPercent / 100));
+  });
+  const automaticCount = Math.min(eligible.length, Math.max(250, Math.ceil(eligible.length * 0.2)));
+  let selected: CandidateTag[];
+  let frequent = 0;
+  let discovery = 0;
+  if (config.poolMode === 'all') {
+    selected = eligible.map(item => ({ ...item, reason: 'all' }));
+  } else if (config.poolMode === 'minimum') {
+    selected = eligible.filter(item => item.count >= config.minimumUses)
+      .map(item => ({ ...item, reason: 'minimum' }));
+  } else {
+    const requested = config.poolMode === 'count' ? config.poolCount
+      : config.poolMode === 'auto' ? automaticCount : Math.ceil(eligible.length * config.poolPercent / 100);
+    const budget = Math.min(eligible.length, requested);
+    frequent = eligible.length > budget ? Math.floor(budget * config.mostUsedPercent / 100) : budget;
+    discovery = budget - frequent;
+    const core = eligible.slice(0, frequent).map(item => ({ ...item, reason: 'frequent' as const }));
+    const sampled = discoverySample(eligible.slice(frequent), discovery, seed)
+      .map(item => ({ ...item, reason: 'discovery' as const }));
+    selected = [...core, ...sampled];
+  }
+  const selectedByKey = new Map(selected.map(item => [tagKey(item.tag), item.reason]));
+  const inspected: CandidateInspection[] = ranked.map(item => {
+    const key = tagKey(item.tag);
+    const reason = selectedByKey.get(key);
+    if (isExcluded(item.tag, rules)) return { ...item, status: 'excluded' };
+    if (existing.has(key)) return { ...item, status: 'already-present' };
+    return reason ? { ...item, status: 'included', reason } : { ...item, status: 'outside-pool' };
+  });
   return {
-    tags: selected, total: merged.size, excluded: excludedCount,
-    existing: existingCount, eligible: eligible.length,
+    tags: selected, inspected, total: merged.size, excluded: excludedCount,
+    existing: existingCount, eligible: eligible.length, frequent, discovery,
   };
 }
 
