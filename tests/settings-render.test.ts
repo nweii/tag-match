@@ -39,8 +39,8 @@ function setup(desktop: boolean, eligible = 3,
     secretStorage: { getSecret: (id: string) => secrets[id] ?? null },
     metadataCache: { getTags: () => Object.fromEntries(Array.from({ length: eligible }, (_, index) => [`#tag-${index}`, eligible - index])) } };
   const agentCliStatus = cliKind === 'missing' || cliKind === 'unknown' ? { kind: cliKind }
-    : { kind: cliKind, version: cliKind === 'older' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.1' };
-  const plugin = { manifest: { id: 'tag-match', version: '0.1.1' }, agentCliStatus,
+    : { kind: cliKind, version: cliKind === 'older' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.2' };
+  const plugin = { manifest: { id: 'tag-match', version: '0.1.2' }, agentCliStatus,
     settings: { ...DEFAULTS, poolMode, ...settings }, saveSettings: async () => {} };
   const tab = new TagMatchSettingsTab(app as never, plugin as never);
   const definitions = tab.getSettingDefinitions() as Definition[];
@@ -54,6 +54,11 @@ test('a synced secret reference without a local key prompts for this device', ()
     ['openrouter', 'openRouterSecretId', 'OpenRouter API key'],
   ] as const) {
     const id = `tag-match-${provider}`;
+    const unselected = setup(true, 3, 'auto', true, { provider });
+    const unselectedDefinition = unselected.items.find(item => item.name === name);
+    assert.ok(unselectedDefinition);
+    assert.match(renderElement(rendered(unselected.tab, unselectedDefinition)).textContent, /API keys do not sync between devices\./);
+
     const missing = setup(true, 3, 'auto', true, { provider, [reference]: id });
     const definition = missing.items.find(item => item.name === name);
     assert.ok(definition);
@@ -66,6 +71,7 @@ test('a synced secret reference without a local key prompts for this device', ()
     assert.ok(loadedDefinition);
     const loadedSetting = rendered(loaded.tab, loadedDefinition);
     assert.doesNotMatch(renderElement(loadedSetting).textContent, /Key missing/);
+    assert.match(renderElement(loadedSetting).textContent, /API keys do not sync between devices\./);
     assert.doesNotMatch(renderElement(loadedSetting).textContent, /private-key-value/);
   }
 });
@@ -79,7 +85,7 @@ test('current desktop CLI shows its matching release without an update command',
   const definition = items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
   const setting = rendered(tab, definition);
-  assert.match((definition.desc as Fragment).textContent, /CLI up to date.*0\.1\.1 matches this plugin/);
+  assert.match((definition.desc as Fragment).textContent, /CLI up to date.*0\.1\.2 matches this plugin/);
   assert.match((definition.desc as Fragment).textContent, /\/Vault\/settings\/plugins\/tag-match\/tag-match\.mjs/);
   assert.equal(renderElement(setting).all('details').length, 0);
   const button = renderElement(setting).all('button')[0];
@@ -166,7 +172,7 @@ test('desktop without the CLI offers a pinned install command', async () => {
   assert.equal(renderElement(setting).all('details')[0]?.all('summary')[0]?.textContent, 'Preview install command');
   await renderElement(setting).all('button')[0]?.click?.();
   assert.match(copied[0]!, /curl -fsSL/);
-  assert.match(copied[0]!, /releases\/download\/0\.1\.1\/install-cli\.mjs/);
+  assert.match(copied[0]!, /releases\/download\/0\.1\.2\/install-cli\.mjs/);
   assert.match(copied[0]!, /'\/Vault\/settings\/plugins\/tag-match'/);
 });
 

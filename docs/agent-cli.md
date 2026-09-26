@@ -4,6 +4,8 @@ This guide is installed beside `tag-match.mjs` and `data.json`. Resolve those si
 
 The CLI requires Node.js 22 or later. Run the sibling CLI with `--help` first. Its help is the source of truth for command syntax, JSON input and output, network access, and file-writing behavior. Pass the sibling `data.json` as the configuration path. Network commands read the selected Obsidian Secret through the official `obsidian` command, which requires the desktop app to be running with that vault open. For standalone use, set `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` for the selected provider. Offline `help`, `preview`, and `apply` commands do not request a credential.
 
+A synced `data.json` can contain a Secret name without its key on this device. For network commands, the user can add the key in Obsidian Secrets here or supply the selected provider's environment variable.
+
 Use `review` by default for tagging. Confirm that it returned `review-ready`, inspect the proposed tags, then use `apply` with only the tags the user approved. The task is complete when apply reports `applied` or `no-op` and its path and added tags match the request. Review does not write, and apply makes no network request.
 
 For default (`auto`), percentage, and number modes, `mostUsedPercent` sets the share selected by use count from 0 to 100. The remaining places sample other tags, including rarely used tags. The default is 70. `preview` returns each included tag's internal reason and an inspection list that distinguishes included, excluded, already-present, and outside-selection tags. The same note, inventory, and settings produce the same selection.

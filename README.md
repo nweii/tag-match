@@ -19,7 +19,7 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nweii/tag-match/releases/latest).
 2. Put them in `<vault>/.obsidian/plugins/tag-match/`, then reload Obsidian and enable Tag Match under **Settings → Community plugins**.
-3. Open Tag Match settings, choose TypeSafe or OpenRouter, and select an Obsidian Secret containing its API key. Add the key on each device where you use Tag Match.
+3. On each device, open Tag Match settings, choose TypeSafe or OpenRouter, and create or select an Obsidian Secret containing its API key. Obsidian does not sync secret values.
 4. Open a Markdown note and run **Tag Match: Review tags for current note**. Select **Analyze note**, review the checked matches, then select **Add selected tags**.
 
 For direct application, run **Tag Match: Add recommended tags to current note**. It analyzes the note and adds recommendations without a review dialog. Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
@@ -64,7 +64,7 @@ An agent can combine `preview`, `suggest`, `review`, and `apply`, or use `quick-
 
 Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai` or `openrouter.ai`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it; there is no background vault scan sent to a model.
 
-API keys are stored in Obsidian's device-local SecretStorage. The plugin's `data.json` stores only each selected secret's name; if plugin settings sync to another device, the key value does not come with them. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy).
+API keys stay in Obsidian Secrets on the device where you enter them. The plugin's `data.json` stores only the selected secret's name; synced settings may carry that name to another device, but not the key. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy).
 
 The Obsidian plugin operates within your vault. The optional CLI reads its explicit configuration path and can read or modify a Markdown file outside a vault when you supply that path. It does not search your filesystem for notes or credentials.
 

@@ -168,7 +168,8 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     connection.appendText('. Each uses its own API key.');
     const secretDescription = (id: string, providerName: string) => id && !this.app.secretStorage.getSecret(id)?.trim()
       ? 'Key missing on this device. Re-enter the API key in Obsidian Secrets, then select it here.'
-      : `Choose an Obsidian Secret for ${providerName}.`;
+      : id ? 'API keys do not sync between devices.'
+        : `Choose an Obsidian Secret for ${providerName}. API keys do not sync between devices.`;
     const basePath = Platform.isDesktop && this.app.vault.adapter instanceof FileSystemAdapter
       ? this.app.vault.adapter.getBasePath() : null;
     const agentSetup = resolveAgentSetup(Platform.isDesktop, basePath, this.app.vault.configDir,
