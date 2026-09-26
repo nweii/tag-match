@@ -1,6 +1,6 @@
 # Tag Match
 
-Tag Match finds relevant tags among those in your Obsidian vault. A fast AI decision model judges each candidate against your note and the tagging rules and definitions you provide. Review its suggestions or add the top matches directly.
+Tag Match finds relevant tags among those in your Obsidian vault for a given note. It uses an AI decision model to judge each candidate against your note, optionally using tagging rules and definitions you provide. You can review its suggestions or add top matches directly.
 
 ## AI models
 
@@ -8,10 +8,10 @@ Tag Match uses Jev through TypeSafe or OpenRouter. Analysis requires an account,
 
 ## Features
 
-- **Matches your tag system.** Your definitions and rules shape which tags fit a note, even when their names alone would suggest something else.
+- **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
 - **Fast, low-cost analysis.** In a synthetic short-note test, Jev evaluated 800 tags in about 2.1 seconds at an estimated cost of less than half a cent. See [speed and cost](#speed-and-cost) for the measurement and its limits.
-- **Control over what gets added.** Set how many tags to consider, exclude tags or branches, and choose a minimum match score and addition limit. Review suggestions or apply them directly.
-- **Fits your agent workflows.** Your agents can tag notes with the same preferences and provider connection you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
+- **Fine-grained controls.** Set how many tags to consider, exclude tags or branches, and choose a minimum match score and addition limit. Review suggestions or apply them directly.
+- **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
 
 ## Getting started
 
