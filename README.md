@@ -10,7 +10,7 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 
 - **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
 - **Built for fast, low-cost analysis.** Jev evaluates candidate tags in batches rather than generating a long-form response. You control how many tags it checks.
-- **Fine-grained controls.** Set how many tags to consider, exclude tags or branches, and choose a minimum match score and addition limit. Review suggestions or apply them directly.
+- **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
 - **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
 
 ## Getting started
