@@ -4,12 +4,12 @@ Tag Match finds relevant tags among those in your Obsidian vault for a given not
 
 ## AI models
 
-Tag Match uses Jev through TypeSafe or OpenRouter. Analysis requires an account, an API key, and paid API credits with either provider.
+Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](https://openrouter.ai/). Analysis requires an account, an API key, and paid API credits with either provider.
 
 ## Features
 
 - **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
-- **Fast, low-cost analysis.** In a synthetic short-note test, Jev evaluated 800 tags in about 2.1 seconds at an estimated cost of less than half a cent. See [speed and cost](#speed-and-cost) for the measurement and its limits.
+- **Built for fast, low-cost analysis.** Jev evaluates candidate tags in batches rather than generating a long-form response. You control how many tags it checks.
 - **Fine-grained controls.** Set how many tags to consider, exclude tags or branches, and choose a minimum match score and addition limit. Review suggestions or apply them directly.
 - **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
 
@@ -19,7 +19,7 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nweii/tag-match/releases/latest).
 2. Put them in `<vault>/.obsidian/plugins/tag-match/`, then reload Obsidian and enable Tag Match under **Settings → Community plugins**.
-3. Open Tag Match settings, choose TypeSafe or OpenRouter, and select an Obsidian Secret containing its API key.
+3. Open Tag Match settings, choose TypeSafe or OpenRouter, and select an Obsidian Secret containing its API key. Add the key on each device where you use Tag Match.
 4. Open a Markdown note and run **Tag Match: Review tags for current note**. Select **Analyze note**, review the checked matches, then select **Add selected tags**.
 
 For direct application, run **Tag Match: Add recommended tags to current note**. It analyzes the note and adds recommendations without a review dialog. Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
@@ -60,17 +60,11 @@ Use **Copy agent instruction** in Tag Match settings to point an agent to the in
 
 An agent can combine `preview`, `suggest`, `review`, and `apply`, or use `quick-apply` for direct application. `evaluate` exposes general decision questions. The CLI can run without Obsidian when the caller supplies the tag inventory and existing tags.
 
-## Speed and cost
-
-In a synthetic short-note benchmark, Jev evaluated **800 candidate tags in 2.09–2.14 seconds** across two runs with the plugin's normal batch size. Reported usage works out to about **$0.0047 per run** at TypeSafe's published Jev 1.13 input rate at the time of measurement. Timing includes preparation and network requests, but excludes the Obsidian interface and note writes. Longer notes, tag definitions, retries, and network conditions can change both time and cost. See the [benchmark runner](./scripts/benchmark-batching.mjs) and [recorded measurements](./scripts/benchmark-batching-baseline.json).
-
-Check [TypeSafe's current pricing](https://docs.typesafe.ai/models) or [OpenRouter's model page](https://openrouter.ai/typesafe/jev-1.13) before use.
-
 ## Privacy and network access
 
 Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai` or `openrouter.ai`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it; there is no background vault scan sent to a model.
 
-API keys are stored through Obsidian Secrets in local, vault-scoped storage. The plugin's `data.json` stores only each selected secret's reference. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy).
+API keys are stored in Obsidian's device-local SecretStorage. The plugin's `data.json` stores only each selected secret's name; if plugin settings sync to another device, the key value does not come with them. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy).
 
 The Obsidian plugin operates within your vault. The optional CLI reads its explicit configuration path and can read or modify a Markdown file outside a vault when you supply that path. It does not search your filesystem for notes or credentials.
 

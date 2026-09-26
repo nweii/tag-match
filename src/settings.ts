@@ -166,6 +166,9 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     connection.appendText(' or ');
     connection.createEl('a', { text: 'OpenRouter', attr: { href: 'https://openrouter.ai' } });
     connection.appendText('. Each uses its own API key.');
+    const secretDescription = (id: string, providerName: string) => id && !this.app.secretStorage.getSecret(id)?.trim()
+      ? 'Key missing on this device. Re-enter the API key in Obsidian Secrets, then select it here.'
+      : `Choose an Obsidian Secret for ${providerName}.`;
     const basePath = Platform.isDesktop && this.app.vault.adapter instanceof FileSystemAdapter
       ? this.app.vault.adapter.getBasePath() : null;
     const agentSetup = resolveAgentSetup(Platform.isDesktop, basePath, this.app.vault.configDir,
@@ -198,20 +201,22 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       { type: 'group', heading: 'Connection and agents', items: [
         { name: 'Connection provider', desc: connection,
           control: { type: 'dropdown', key: 'provider', options: { typesafe: 'TypeSafe', openrouter: 'OpenRouter' } } },
-        { name: 'TypeSafe API key', desc: 'Choose an Obsidian Secret for TypeSafe.',
+        { name: 'TypeSafe API key', desc: secretDescription(this.plugin.settings.typeSafeSecretId, 'TypeSafe'),
           visible: () => this.plugin.settings.provider === 'typesafe', aliases: ['credential', 'token'], render: setting => {
             new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.typeSafeSecretId).onChange(async value => {
               this.plugin.settings.typeSafeSecretId = value;
               this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
               await this.plugin.saveSettings();
+              setting.setDesc(secretDescription(value, 'TypeSafe'));
             });
           } },
-        { name: 'OpenRouter API key', desc: 'Choose an Obsidian Secret for OpenRouter.',
+        { name: 'OpenRouter API key', desc: secretDescription(this.plugin.settings.openRouterSecretId, 'OpenRouter'),
           visible: () => this.plugin.settings.provider === 'openrouter', aliases: ['credential', 'token'], render: setting => {
             new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.openRouterSecretId).onChange(async value => {
               this.plugin.settings.openRouterSecretId = value;
               this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
               await this.plugin.saveSettings();
+              setting.setDesc(secretDescription(value, 'OpenRouter'));
             });
           } },
         { name: 'OpenRouter model', desc: 'An OpenRouter Decisions API model ID.',

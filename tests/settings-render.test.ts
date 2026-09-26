@@ -6,7 +6,7 @@ import { DEFAULTS, type Config } from '../src/config.ts';
 import { TagMatchSettingsTab } from '../src/settings.ts';
 
 interface Definition { name?: string; desc?: unknown; items?: Definition[]; render?: (setting: Setting) => void; control?: { options?: Record<string, string> }; visible?: () => boolean }
-interface RenderElement { textContent: string; open: boolean; all(tag: string): RenderElement[]; click?(): Promise<void>; change?(value: unknown): Promise<void> }
+interface RenderElement { textContent: string; open: boolean; value?: unknown; all(tag: string): RenderElement[]; click?(): Promise<void>; change?(value: unknown): Promise<void> }
 
 class Fragment {
   children: Fragment[] = [];
@@ -26,7 +26,8 @@ function renderElement(setting: Setting): RenderElement {
 
 function setup(desktop: boolean, eligible = 3,
   poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all' = 'auto', installed = desktop,
-  settings: Partial<Config> = {}, cliKind: 'current' | 'older' | 'unknown' | 'newer' | 'missing' = installed ? 'current' : 'missing') {
+  settings: Partial<Config> = {}, cliKind: 'current' | 'older' | 'unknown' | 'newer' | 'missing' = installed ? 'current' : 'missing',
+  secrets: Record<string, string> = {}) {
   (Platform as { isDesktop: boolean }).isDesktop = desktop;
   const copied: string[] = [];
   Object.assign(globalThis, {
@@ -35,16 +36,39 @@ function setup(desktop: boolean, eligible = 3,
   });
   const Adapter = FileSystemAdapter as unknown as new(path: string) => FileSystemAdapter;
   const app = { vault: { configDir: 'settings', adapter: new Adapter('/Vault') },
+    secretStorage: { getSecret: (id: string) => secrets[id] ?? null },
     metadataCache: { getTags: () => Object.fromEntries(Array.from({ length: eligible }, (_, index) => [`#tag-${index}`, eligible - index])) } };
   const agentCliStatus = cliKind === 'missing' || cliKind === 'unknown' ? { kind: cliKind }
-    : { kind: cliKind, version: cliKind === 'older' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.0' };
-  const plugin = { manifest: { id: 'tag-match', version: '0.1.0' }, agentCliStatus,
+    : { kind: cliKind, version: cliKind === 'older' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.1' };
+  const plugin = { manifest: { id: 'tag-match', version: '0.1.1' }, agentCliStatus,
     settings: { ...DEFAULTS, poolMode, ...settings }, saveSettings: async () => {} };
   const tab = new TagMatchSettingsTab(app as never, plugin as never);
   const definitions = tab.getSettingDefinitions() as Definition[];
   const items = definitions.flatMap(item => item.items ?? []);
   return { items, copied, tab };
 }
+
+test('a synced secret reference without a local key prompts for this device', () => {
+  for (const [provider, reference, name] of [
+    ['typesafe', 'typeSafeSecretId', 'TypeSafe API key'],
+    ['openrouter', 'openRouterSecretId', 'OpenRouter API key'],
+  ] as const) {
+    const id = `tag-match-${provider}`;
+    const missing = setup(true, 3, 'auto', true, { provider, [reference]: id });
+    const definition = missing.items.find(item => item.name === name);
+    assert.ok(definition);
+    const setting = rendered(missing.tab, definition);
+    assert.match(renderElement(setting).textContent, /Key missing on this device\. Re-enter the API key in Obsidian Secrets, then select it here\./);
+    assert.equal(renderElement(setting).all('select')[0]?.value, id);
+
+    const loaded = setup(true, 3, 'auto', true, { provider, [reference]: id }, 'current', { [id]: 'private-key-value' });
+    const loadedDefinition = loaded.items.find(item => item.name === name);
+    assert.ok(loadedDefinition);
+    const loadedSetting = rendered(loaded.tab, loadedDefinition);
+    assert.doesNotMatch(renderElement(loadedSetting).textContent, /Key missing/);
+    assert.doesNotMatch(renderElement(loadedSetting).textContent, /private-key-value/);
+  }
+});
 
 function rendered(tab: TagMatchSettingsTab, definition: Definition): Setting {
   return (tab as unknown as { renderSettingDefinition(value: Definition): Setting }).renderSettingDefinition(definition);
@@ -55,7 +79,7 @@ test('current desktop CLI shows its matching release without an update command',
   const definition = items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
   const setting = rendered(tab, definition);
-  assert.match((definition.desc as Fragment).textContent, /CLI up to date.*0\.1\.0 matches this plugin/);
+  assert.match((definition.desc as Fragment).textContent, /CLI up to date.*0\.1\.1 matches this plugin/);
   assert.match((definition.desc as Fragment).textContent, /\/Vault\/settings\/plugins\/tag-match\/tag-match\.mjs/);
   assert.equal(renderElement(setting).all('details').length, 0);
   const button = renderElement(setting).all('button')[0];
@@ -142,7 +166,7 @@ test('desktop without the CLI offers a pinned install command', async () => {
   assert.equal(renderElement(setting).all('details')[0]?.all('summary')[0]?.textContent, 'Preview install command');
   await renderElement(setting).all('button')[0]?.click?.();
   assert.match(copied[0]!, /curl -fsSL/);
-  assert.match(copied[0]!, /releases\/download\/0\.1\.0\/install-cli\.mjs/);
+  assert.match(copied[0]!, /releases\/download\/0\.1\.1\/install-cli\.mjs/);
   assert.match(copied[0]!, /'\/Vault\/settings\/plugins\/tag-match'/);
 });
 
