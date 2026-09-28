@@ -123,7 +123,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     const selection = selectCandidates(inventory(this.app), [], this.plugin.settings);
     const displays = [...this.selectionDisplays];
     for (const kind of ['default', 'percentage', 'number', 'mix', 'mix-left', 'mix-right', 'summary'] as const) {
-      const rendered = Array.from(this.containerEl?.querySelectorAll<HTMLElement>(`.${selectionDisplayClass(kind)}`) ?? []);
+      const rendered = Array.from(this.containerEl.querySelectorAll<HTMLElement>(`.${selectionDisplayClass(kind)}`));
       for (const element of rendered) {
         if (!displays.some(display => display.element === element)) displays.push({ element, kind });
       }

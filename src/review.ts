@@ -2,10 +2,11 @@
 import { type App, Modal, Notice, Setting, type TFile } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
 import { type Config } from './config.ts';
-import { type CandidateInspection, type Note, selectCandidates, buildBatches, noteSeed } from './core.ts';
+import { type CandidateInspection, type Note, type TagCount, selectCandidates, buildBatches, noteSeed } from './core.ts';
 import { suggest, type SuggestionResult } from './client.ts';
 import { inventory, applySuggestions } from './vault.ts';
 import { resolveProvider } from './provider.ts';
+import { hydrateCredentials } from './secret-storage.ts';
 
 export class ReviewModal extends Modal {
   private controller = new AbortController();
@@ -15,14 +16,23 @@ export class ReviewModal extends Modal {
   private rows!: HTMLElement;
   private status!: HTMLElement;
   private selectionCount: HTMLElement | null = null;
-  private config: Config;
+  private plugin: TagMatchPlugin;
+  private file: TFile;
+  private note: Note;
+  private snapshot: string;
+  private readonly config: Config;
+  private readonly tags: TagCount[];
   private running = false;
   private applying = false;
 
-  constructor(app: App, private plugin: TagMatchPlugin, private file: TFile,
-    private note: Note, private snapshot: string) {
+  constructor(app: App, plugin: TagMatchPlugin, file: TFile, note: Note, snapshot: string) {
     super(app);
+    this.plugin = plugin;
+    this.file = file;
+    this.note = note;
+    this.snapshot = snapshot;
     this.config = { ...plugin.settings };
+    this.tags = inventory(app);
   }
 
   onOpen() {
@@ -31,8 +41,7 @@ export class ReviewModal extends Modal {
     contentEl.createEl('h2', { text: `Tag matches for ${this.note.title}` });
     const provider = resolveProvider(this.config);
     contentEl.createEl('p', { cls: 'setting-item-description', text: provider.attribution });
-    const tags = inventory(this.app);
-    const pool = selectCandidates(tags, this.note.existingTags, this.config, noteSeed(this.note));
+    const pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
     let prepared: ReturnType<typeof buildBatches>;
     try { prepared = buildBatches(this.note, pool, this.config); }
     catch (error) {
@@ -56,8 +65,8 @@ export class ReviewModal extends Modal {
         this.running = true;
         button.setDisabled(true);
         try {
-          this.config = this.plugin.credentialSnapshot();
-          this.result = await suggest(this.note, tags, this.config, this.plugin.transport,
+          const config = hydrateCredentials(this.config, this.app.secretStorage);
+          this.result = await suggest(this.note, this.tags, config, this.plugin.transport,
             this.controller.signal, progress => { this.status.setText(`Evaluated ${progress.complete} of ${progress.total} tags…`); });
           this.selected = new Set(this.result.recommended.map(item => item.tag));
           this.status.setText(`Evaluated ${this.result.judgments.length} tags. ${this.result.recommended.length} recommended. ${this.result.truncated ? 'Note text was sampled.' : ''}`);
@@ -93,7 +102,7 @@ export class ReviewModal extends Modal {
   private renderResults() {
     this.rows.empty();
     if (!this.result) {
-      const pool = selectCandidates(inventory(this.app), this.note.existingTags, this.config, noteSeed(this.note));
+      const pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
       const matching = pool.inspected.filter(item => item.tag.toLowerCase().includes(this.query));
       for (const item of matching.slice(0, 100)) {
         this.rows.createDiv({ cls: 'tag-match-candidate', text: `#${item.tag} · ${item.count} uses · ${inspectionLabel(item)}` });

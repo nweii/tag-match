@@ -18,14 +18,22 @@ export class TestElement {
   addClass(value) { this.className += `${this.className ? ' ' : ''}${value}`; }
   setText(value) { this.text = value; this.children = []; }
   appendText(value) { this.children.push(new TestElement('#text', { text: value })); }
+  addEventListener(name, handler) { this[name] = handler; }
   empty() { this.children = []; }
   all(tag) { return this.children.flatMap(child => [...(child.tagName === tag.toUpperCase() ? [child] : []), ...(typeof child.all === 'function' ? child.all(tag) : [])]); }
+  querySelectorAll(selector) {
+    const className = selector.startsWith('.') ? selector.slice(1) : '';
+    return this.children.flatMap(child => [
+      ...(className && child.className.split(' ').includes(className) ? [child] : []),
+      ...child.querySelectorAll(selector),
+    ]);
+  }
   get textContent() { return this.text + this.children.map(child => child.textContent).join(''); }
 }
 
 export class FileSystemAdapter { constructor(path = '') { this.path = path; } getBasePath() { return this.path; } }
 export const Platform = { isDesktop: true, isWin: false };
-export class Modal { constructor(app) { this.app = app; this.contentEl = new TestElement(); } open() {} }
+export class Modal { constructor(app) { this.app = app; this.contentEl = new TestElement(); } open() { this.onOpen(); } close() { this.onClose(); } }
 export class Notice { constructor(message) { this.message = message; } }
 export class SecretComponent {
   constructor(_app, container) { this.element = container.createEl('select'); }
@@ -41,7 +49,7 @@ export class SliderComponent {
   then(callback) { callback(this); return this; }
 }
 export class PluginSettingTab {
-  constructor(app, plugin) { this.app = app; this.plugin = plugin; }
+  constructor(app, plugin) { this.app = app; this.plugin = plugin; this.containerEl = new TestElement(); }
   update() {}
   refreshDomState() {}
   renderSettingDefinition(definition) {
@@ -61,10 +69,11 @@ export class PluginSettingTab {
   }
 }
 export class Setting {
-  constructor() {
+  constructor(container) {
     this.settingEl = new TestElement(); this.nameEl = this.settingEl.createDiv('setting-item-name');
     this.descEl = this.settingEl.createDiv('setting-item-description');
     this.controlEl = this.settingEl.createDiv('setting-item-control');
+    if (container) container.children.push(this.settingEl);
   }
   setName() { return this; }
   setDesc(value) {
@@ -75,7 +84,9 @@ export class Setting {
   }
   addButton(callback) {
     const element = this.controlEl.createEl('button');
-    const button = { setButtonText: text => { element.text = text; return button; }, onClick: handler => { element.click = handler; return button; } };
+    const button = { setButtonText: text => { element.text = text; return button; }, setCta: () => button,
+      setDisabled: value => { element.disabled = value; return button; },
+      onClick: handler => { element.click = handler; return button; } };
     callback(button); return this;
   }
   addDropdown(callback) {
@@ -88,7 +99,12 @@ export class Setting {
     callback(dropdown); return this;
   }
   addSlider(callback) { callback(new SliderComponent(this.controlEl)); return this; }
-  addSearch() { return this; }
+  addSearch(callback) {
+    const element = this.controlEl.createEl('input');
+    const search = { setPlaceholder: text => { element.placeholder = text; return search; },
+      onChange: handler => { element.change = handler; return search; } };
+    callback(search); return this;
+  }
 }
 export function getAllTags() { return {}; }
 export function getTags() { return []; }

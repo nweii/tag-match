@@ -1,4 +1,4 @@
-// Applies Obsidian's recommended plugin lint rules with Node globals for CLI and test code.
+// Applies Obsidian's plugin rules and production TypeScript checks, with Node globals for CLI and tests.
 import { defineConfig } from 'eslint/config';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import globals from 'globals';
@@ -18,6 +18,16 @@ export default defineConfig([
     },
     rules: {
       'obsidianmd/ui/sentence-case': ['warn', { brands: ['Jev', 'Markdown', 'Nathan Cheng', 'Tag Match', 'TypeSafe'], acronyms: ['API', 'CLI'] }],
+    },
+  },
+  {
+    files: ['src/**/*.ts', 'scripts/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'error',
+      'no-restricted-syntax': ['error', {
+        selector: 'TSAsExpression[expression.type="TSAsExpression"]',
+        message: 'Validate the input or use a single justified type assertion instead of a chained assertion.',
+      }],
     },
   },
   {

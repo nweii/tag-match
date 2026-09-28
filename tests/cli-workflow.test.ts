@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULTS, type Config } from '../src/config.ts';
-import { applyReviewPlan, quickApplyFile, reviewFile } from '../scripts/cli/cli-workflow.ts';
+import { applyReviewPlan, parseReviewPlan, quickApplyFile, reviewFile } from '../scripts/cli/cli-workflow.ts';
 import type { Transport } from '../src/client.ts';
 
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', ...values });
@@ -36,6 +36,16 @@ test('review returns a non-writing plan and apply writes explicit reviewed tags'
   assert.equal(result.status, 'applied');
   assert.deepEqual(result.addedTags, ['design']);
   assert.match(await readFile(path, 'utf8'), /tags: \[ existing, design \]/);
+});
+
+test('apply parses only the validated fields it uses from a review plan', async () => {
+  const path = await fixture();
+  const plan = await reviewFile(path, tags, config(), transport);
+  assert.deepEqual(parseReviewPlan(plan), {
+    note: plan.note, existingTags: plan.existingTags, evaluatedTags: plan.evaluatedTags,
+  });
+  assert.throws(() => parseReviewPlan({ ...plan, evaluatedTags: ['design', 3] }), /review plan is invalid/);
+  assert.throws(() => parseReviewPlan({ ...plan, result: null }), /review plan is invalid/);
 });
 
 test('apply refuses stale notes, invalid selections, exclusions, and excess tags', async () => {

@@ -18,6 +18,8 @@ export interface ReviewPlan {
   result: Omit<SuggestionResult, 'recommended'>;
 }
 
+export type ApplyReviewPlan = Pick<ReviewPlan, 'note' | 'existingTags' | 'evaluatedTags'>;
+
 function digest(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
@@ -44,19 +46,26 @@ export async function reviewFile(path: string, tags: TagCount[], config: Config,
     proposedTags: recommended, result: rest };
 }
 
-export function parseReviewPlan(value: unknown): ReviewPlan {
+function stringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+export function parseReviewPlan(value: unknown): ApplyReviewPlan {
   if (!record(value) || value.status !== 'review-ready' || value.version !== 1 || !record(value.note)
     || typeof value.note.path !== 'string' || typeof value.note.sha256 !== 'string'
-    || typeof value.note.title !== 'string' || !Array.isArray(value.existingTags)
-    || !value.existingTags.every(tag => typeof tag === 'string')
-    || !Array.isArray(value.evaluatedTags) || !value.evaluatedTags.every(tag => typeof tag === 'string')
+    || typeof value.note.title !== 'string' || !stringArray(value.existingTags)
+    || !stringArray(value.evaluatedTags)
     || !Array.isArray(value.proposedTags) || !record(value.result)) {
     throw new Error('The review plan is invalid. Run review again.');
   }
-  return value as unknown as ReviewPlan;
+  return {
+    note: { path: value.note.path, sha256: value.note.sha256, title: value.note.title },
+    existingTags: value.existingTags,
+    evaluatedTags: value.evaluatedTags,
+  };
 }
 
-export async function applyReviewPlan(plan: ReviewPlan, selectedTags: string[], config: Config,
+export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: string[], config: Config,
   signal = new AbortController().signal): Promise<{ status: 'applied' | 'no-op'; path: string; addedTags: string[] }> {
   signal.throwIfAborted();
   if (!Array.isArray(selectedTags) || !selectedTags.every(tag => typeof tag === 'string')) {
