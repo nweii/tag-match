@@ -13,6 +13,10 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 - **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
 - **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
 
+![Tag selection settings showing a 500-tag shortlist split between most-used and sampled tags, with exclusions.](./assets/screenshots/tag-selection.png)
+
+![Tagging context settings with guidance, tag definitions, and a prompt to draft guidance with an agent.](./assets/screenshots/tagging-context.png)
+
 ## Getting started
 
 You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
