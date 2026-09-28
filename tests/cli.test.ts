@@ -10,7 +10,7 @@ import { record } from '../src/config.ts';
 async function cli(args: string[], input = '', mockNetwork = false): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const preload = mockNetwork ? ['--import', './tests/fixtures/fetch-stub.mjs'] : [];
-    const child = spawn(process.execPath, [...preload, '--experimental-strip-types', 'src/cli.ts', ...args], { cwd: process.cwd() });
+    const child = spawn(process.execPath, [...preload, '--experimental-strip-types', 'scripts/cli/cli.ts', ...args], { cwd: process.cwd() });
     let stdout = ''; let stderr = '';
     child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
     child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });

@@ -11,7 +11,7 @@ await build({ entryPoints: ['src/main.ts'], outfile: 'main.js', bundle: true,
   format: 'cjs', platform: 'browser', target: 'es2022', external: ['obsidian'],
   banner: { js: '// Tag Match: Obsidian interface for shared tag evaluation.' },
   footer: { js: licenseFooter } });
-await build({ entryPoints: ['src/cli.ts'], outfile: 'dist/tag-match.mjs', bundle: true,
+await build({ entryPoints: ['scripts/cli/cli.ts'], outfile: 'dist/tag-match.mjs', bundle: true,
   format: 'esm', platform: 'node', target: 'node22',
   define: { __TAG_MATCH_VERSION__: JSON.stringify(version) },
   banner: { js: `#!/usr/bin/env node\n// tag-match-cli-version: ${version}\n// Tag Match: command-line interface for shared tag evaluation.\nimport { createRequire } from "node:module"; const require = createRequire(import.meta.url);` },

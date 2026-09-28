@@ -11,8 +11,10 @@ export type Pause = (ms: number, signal: AbortSignal) => Promise<void>;
 
 const pause: Pause = (ms, signal) => new Promise((resolve, reject) => {
   signal.throwIfAborted();
-  const abort = () => { clearTimeout(timer); reject(new Error('Cancelled.')); };
-  const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, ms);
+  // This module also runs in Node, where window does not exist.
+  const timers = typeof window === 'undefined' ? { setTimeout, clearTimeout } : window;
+  const abort = () => { timers.clearTimeout(timer); reject(new Error('Cancelled.')); };
+  const timer = timers.setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, ms);
   signal.addEventListener('abort', abort, { once: true });
 });
 

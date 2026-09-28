@@ -5,5 +5,5 @@
     "allowImportingTsExtensions": true, "allowJs": true, "noEmit": true,
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "*.mjs", "scripts/**/*.mjs", "tests/fixtures/*.mjs"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "*.mjs", "scripts/**/*.ts", "scripts/**/*.mjs", "tests/fixtures/*.mjs"]
 }

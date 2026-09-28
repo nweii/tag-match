@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { normalizeConfig } from '../src/config.ts';
 import { buildBatches, selectCandidates, parseJudgments } from '../src/core.ts';
 import { evaluate } from '../src/client.ts';
-import { fetchTransport } from '../src/cli.ts';
+import { fetchTransport } from './cli/cli.ts';
 import { resolveProvider } from '../src/provider.ts';
-import { resolveCliCredential } from '../src/credentials.ts';
+import { resolveCliCredential } from './cli/credentials.ts';
 
 const arg = process.argv.indexOf('--config');
 if (arg < 0 || !process.argv[arg + 1]) throw new Error('Provide --config PATH (makes paid requests).');

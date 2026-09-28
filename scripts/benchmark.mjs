@@ -5,8 +5,8 @@
 import { readFile } from 'node:fs/promises';
 import { normalizeConfig } from '../src/config.ts';
 import { suggest } from '../src/client.ts';
-import { fetchTransport } from '../src/cli.ts';
-import { resolveCliCredential } from '../src/credentials.ts';
+import { fetchTransport } from './cli/cli.ts';
+import { resolveCliCredential } from './cli/credentials.ts';
 
 const configPath = process.argv[process.argv.indexOf('--config') + 1];
 if (!process.argv.includes('--config') || !configPath) {

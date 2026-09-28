@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULTS, persistedConfig } from '../src/config.ts';
 import { migrateLegacyCredentials } from '../src/secret-storage.ts';
-import { resolveCliCredential } from '../src/credentials.ts';
+import { resolveCliCredential } from '../scripts/cli/credentials.ts';
 
 test('verified migration uses a distinct secret and removes only migrated raw keys', () => {
   const values = new Map([['tag-match-typesafe', 'someone-elses-key']]);

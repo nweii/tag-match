@@ -1,11 +1,11 @@
 // Exposes shared Jev evaluation and tag suggestion as a JSON-only command-line interface.
 import { readFile } from 'node:fs/promises';
 import { stdin, stdout, stderr, argv } from 'node:process';
-import { normalizeConfig, record, type Config } from './config.ts';
-import { evaluate, suggest, type HttpResponse, type Transport } from './client.ts';
-import { buildBatches, noteSeed, selectCandidates, type EvaluationRequest, type Note, type TagCount } from './core.ts';
+import { normalizeConfig, record, type Config } from '../../src/config.ts';
+import { evaluate, suggest, type HttpResponse, type Transport } from '../../src/client.ts';
+import { buildBatches, noteSeed, selectCandidates, type EvaluationRequest, type Note, type TagCount } from '../../src/core.ts';
 import { applyReviewPlan, parseReviewPlan, quickApplyFile, reviewFile } from './cli-workflow.ts';
-import { resolveProvider } from './provider.ts';
+import { resolveProvider } from '../../src/provider.ts';
 import { resolveCliCredential } from './credentials.ts';
 
 declare const __TAG_MATCH_VERSION__: string;

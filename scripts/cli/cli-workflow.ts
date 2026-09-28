@@ -2,11 +2,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { open, readFile, realpath, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import type { Config } from './config.ts';
-import { record } from './config.ts';
-import { suggest, type SuggestionResult, type Transport } from './client.ts';
-import { exclusionRules, isExcluded, normalizeTag, tagKey, type Note, type TagCount } from './core.ts';
-import { addTags, noteMetadata } from './document.ts';
+import type { Config } from '../../src/config.ts';
+import { record } from '../../src/config.ts';
+import { suggest, type SuggestionResult, type Transport } from '../../src/client.ts';
+import { exclusionRules, isExcluded, normalizeTag, tagKey, type Note, type TagCount } from '../../src/core.ts';
+import { addTags, noteMetadata } from '../../src/document.ts';
 
 export interface ReviewPlan {
   status: 'review-ready';

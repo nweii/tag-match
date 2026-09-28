@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULTS, type Config } from '../src/config.ts';
-import { applyReviewPlan, quickApplyFile, reviewFile } from '../src/cli-workflow.ts';
+import { applyReviewPlan, quickApplyFile, reviewFile } from '../scripts/cli/cli-workflow.ts';
 import type { Transport } from '../src/client.ts';
 
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', ...values });

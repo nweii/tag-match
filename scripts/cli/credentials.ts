@@ -1,7 +1,7 @@
 // Resolves provider credentials without exposing their values through saved plugin data or process arguments.
 import { spawn } from 'node:child_process';
 import { dirname, resolve, sep } from 'node:path';
-import type { Config } from './config.ts';
+import type { Config } from '../../src/config.ts';
 
 export type CredentialProvider = Config['provider'];
 const details = (provider: CredentialProvider) => provider === 'openrouter'

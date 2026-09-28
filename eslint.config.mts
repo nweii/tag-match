@@ -21,7 +21,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/cli.ts', 'src/cli-workflow.ts', 'src/credentials.ts', 'tests/**/*.ts', 'tests/fixtures/*.mjs', 'scripts/*.mjs', 'build.mjs', 'version-bump.mjs'],
+    files: ['scripts/cli/**/*.ts', 'tests/**/*.ts', 'tests/fixtures/*.mjs', 'scripts/*.mjs', 'build.mjs', 'version-bump.mjs'],
     languageOptions: { globals: globals.node },
     rules: {
       'obsidianmd/no-nodejs-modules': 'off',
@@ -32,13 +32,8 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/cli.ts'],
+    files: ['scripts/cli/cli.ts'],
     rules: { 'no-restricted-globals': 'off' },
-  },
-  {
-    files: ['src/client.ts'],
-    // This module also runs in Node, where window does not exist.
-    rules: { 'obsidianmd/prefer-window-timers': 'off' },
   },
   {
     files: ['tests/**/*.ts'],
