@@ -13,6 +13,8 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 - **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
 - **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI lets agents review matches or add them directly.
 
+![Review dialog showing the tags to score, note-specific selection controls, and what analysis sends.](./assets/screenshots/review-setup.png)
+
 ![Tag selection settings showing a 500-tag shortlist split between most-used and sampled tags, with exclusions.](./assets/screenshots/tag-selection.png)
 
 ![Tagging context settings with guidance, tag definitions, and a prompt to draft guidance with an agent.](./assets/screenshots/tagging-context.png)
@@ -25,7 +27,7 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
 3. Open a Markdown note and run **Tag Match: Review tags for current note** to analyze and choose matches before adding them, or **Tag Match: Add recommended tags to current note** to analyze and add them directly.
 
-Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
+Both commands respect your exclusions and refuse to apply results if the note has changed.
 
 The plugin uses Obsidian APIs available on desktop and mobile. The companion CLI requires a computer with Node.js 22 or later.
 
@@ -53,7 +55,7 @@ Use short rules for general guidance, such as “Tag substantial topics; skip pa
 dev = Building, debugging, or maintaining software; include implementation tutorials; exclude general technology news without development content.
 ```
 
-Use **Excluded tags** for firm exclusions: `admin` excludes that tag; `work/*` excludes `work` and its descendants. Guidance influences the model's judgment; exclusions and addition limits are enforced by the plugin.
+Use **Excluded tags** for firm exclusions: `admin` excludes that tag; `work/*` excludes `work` and its descendants. Guidance influences the model's judgment; exclusions are enforced by the plugin.
 
 Long notes are sampled from the beginning, middle, and end within your text limit. The review shows how many tags will be considered and whether the note was sampled before analysis.
 
