@@ -78,7 +78,11 @@ ${tagList}
 export class TagMatchSettingsTab extends PluginSettingTab {
   private plugin: TagMatchPlugin;
   private selectionDisplays: { element: HTMLElement; kind: SelectionDisplayKind }[] = [];
-  constructor(app: App, plugin: TagMatchPlugin) { super(app, plugin); this.plugin = plugin; }
+  constructor(app: App, plugin: TagMatchPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+    this.containerEl.addClass('tag-match-settings');
+  }
 
   getControlValue(key: string): unknown { return this.plugin.settings[key as SettingKey]; }
 
