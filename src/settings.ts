@@ -159,7 +159,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     review.appendText(' — Choose which matches to add.');
     const apply = commands.createEl('li');
     apply.createEl('strong', { text: 'Add recommended tags to current note' });
-    apply.appendText(' — Add matches immediately using your limits.');
+    apply.appendText(' — Add the top matches right away, based on your Recommended tags settings.');
     const disclosure = intro.createEl('p');
     disclosure.appendText('Analysis sends note content and tagging context to ');
     disclosure.createEl('a', { text: provider.label, attr: { href: providerUrl } });
