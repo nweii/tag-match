@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc --noEmit && node build.mjs",
     "test": "node --experimental-strip-types --loader ./tests/fixtures/obsidian-loader.mjs --test tests/*.test.ts",
-    "lint": "eslint .",
+    "lint": "eslint . && stylelint styles.css",
     "check": "npm run lint && npm test && npm run build && node dist/tag-match.mjs --help",
     "version": "node version-bump.mjs"
   },
@@ -25,6 +25,7 @@
     "globals": "^17.6.0",
     "jiti": "^2.6.1",
     "obsidian": "^1.13.0",
+    "stylelint": "^17.15.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.59.1"
   }

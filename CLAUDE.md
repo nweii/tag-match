@@ -39,5 +39,6 @@ Tests run TypeScript directly under Node, with no DOM. `tests/fixtures/obsidian-
 ## Conventions
 
 - ESLint runs `eslint-plugin-obsidianmd` with a sentence-case rule for UI strings. Add new brand names or acronyms to its allowlist in `eslint.config.mts` rather than working around the rule.
+- `stylelint.config.mjs` mirrors the CSS checks Obsidian runs on published plugins: no `!important` and no `:has`. Hide elements with the `hidden` attribute (the review's `[hidden]` rule outranks its `display` rules), and mark special-case setting rows with a class set in code.
 - Style with Obsidian CSS variables (`--size-4-*`, `--text-*`, `--background-modifier-*`) in `styles.css`, prefixed `tag-match-`. Build UI with `Setting` rows and native elements so themes and mobile work.
 - `main.js` and `dist/` are build outputs and are gitignored. `docs/agent-cli.md` ships to users as `AGENT-CLI.md`, so treat it as user-facing documentation.
