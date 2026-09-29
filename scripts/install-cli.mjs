@@ -17,7 +17,7 @@ try {
     return Buffer.from(await response.arrayBuffer());
   }));
   await Promise.all(names.map((name, index) => writeFile(join(directory, name), contents[index])));
-  console.log('Tag Match agent CLI installed. Reload Tag Match in Obsidian.');
+  console.log('Tag Match agent CLI installed. In Tag Match settings, select Check CLI status.');
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

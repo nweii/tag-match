@@ -5,7 +5,7 @@ import { type Config, normalizeConfig } from './config.ts';
 import { selectCandidates, parseDefinitions, normalizeTag, type CandidatePool, type TagCount } from './core.ts';
 import { inventory } from './vault.ts';
 import { resolveProvider } from './provider.ts';
-import { buildAgentInstruction, resolveAgentSetup } from './agent-instruction.ts';
+import { buildAgentInstruction, compareVersions, resolveAgentSetup } from './agent-instruction.ts';
 import { hydrateCredentials } from './secret-storage.ts';
 
 class VocabularyModal extends Modal {
@@ -176,19 +176,22 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       this.plugin.manifest.id, this.plugin.manifest.version, Platform.isWin);
     const cliStatus = this.plugin.agentCliStatus;
     const cliInstalled = cliStatus.kind !== 'missing';
+    const cliLabel = cliInstalled && cliStatus.version ? `CLI ${cliStatus.version}` : 'CLI';
+    const comparison = cliStatus.kind === 'missing' ? null
+      : cliStatus.version ? compareVersions(cliStatus.version, this.plugin.manifest.version) : null;
     const agentInstruction = agentSetup && cliInstalled
       ? buildAgentInstruction(agentSetup.guidePath) : null;
     const cliDescription = !agentSetup
       ? 'The optional agent CLI requires Node.js and a terminal on a desktop computer.'
       : cliStatus.kind === 'missing'
-        ? `Requires Node.js 22 or later. Copy the install command, run it in ${Platform.isWin ? 'PowerShell' : 'a terminal'}, then reload Obsidian.`
+        ? `Requires Node.js 22 or later. Copy the install command and run it in ${Platform.isWin ? 'PowerShell' : 'a terminal'}. Then check CLI status.`
         : cliStatus.kind === 'current'
-          ? `CLI ${cliStatus.version} installed.`
-          : cliStatus.kind === 'older'
-            ? `CLI ${cliStatus.version} installed. Optional update to ${this.plugin.manifest.version} available.`
-            : cliStatus.kind === 'newer'
-              ? `CLI ${cliStatus.version} is newer than this plugin (${this.plugin.manifest.version}).`
-              : 'CLI version couldn’t be determined. You can reinstall it using the update command.';
+          ? `${cliLabel} installed. Up to date for this plugin.`
+          : cliStatus.kind === 'newer'
+            ? `${cliLabel} installed. It is newer than this plugin (${this.plugin.manifest.version}).`
+          : cliStatus.kind === 'different'
+            ? `${cliLabel} installed. ${comparison !== null ? 'An optional CLI update is available for this plugin.' : 'It differs from this plugin’s companion CLI, but its version cannot be compared.'}`
+            : `${cliLabel} installed. Tag Match can’t tell whether it matches this plugin’s companion CLI.${comparison !== null ? ' You can reinstall it with the update command.' : ''}`;
     const cliDescriptionContent = agentSetup && cliInstalled ? createFragment() : cliDescription;
     if (agentSetup && cliInstalled && typeof cliDescriptionContent !== 'string') {
       cliDescriptionContent.appendText(cliDescription);
@@ -196,7 +199,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       cliDescriptionContent.createEl('code', { cls: 'tag-match-cli-path', text: agentSetup.cliPath });
     }
     const showCliCommand = Boolean(agentSetup && (cliStatus.kind === 'missing'
-      || cliStatus.kind === 'older' || cliStatus.kind === 'unknown'));
+      || (cliStatus.kind !== 'current' && cliStatus.kind !== 'newer' && comparison !== null && comparison <= 0)));
     return [
       { name: 'Tag Match', desc: intro },
       { type: 'group', heading: 'Connection and agents', items: [
@@ -228,6 +231,12 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           aliases: ['shared command-line configuration', 'CLI'], render: setting => {
             if (!agentSetup) return;
             setting.settingEl.addClass('tag-match-agent-instruction');
+            setting.addButton(button => button.setButtonText('Check CLI status').onClick(async () => {
+              try {
+                await this.plugin.refreshAgentCliStatus();
+                this.update();
+              } catch { new Notice('Could not check CLI status.'); }
+            }));
             if (agentInstruction) setting.addButton(button => button.setButtonText('Copy agent instruction').onClick(async () => {
               try { await activeWindow.navigator.clipboard.writeText(agentInstruction); new Notice('Agent instruction copied.'); }
               catch { new Notice('Could not copy the agent instruction.'); }
@@ -266,7 +275,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           desc: mixCount,
           visible: () => ['auto', 'percent', 'count'].includes(this.plugin.settings.poolMode),
           aliases: ['Share from most-used tags'], render: setting => {
-            const balance = setting.controlEl.createDiv('tag-match-selection-mix');
+            const balance = setting.controlEl.createDiv('tag-match-selection-balance');
             const left = balance.createSpan({ cls: selectionDisplayClass('mix-left'), text: `Most-used ${this.plugin.settings.mostUsedPercent}%` });
             this.registerSelectionDisplay(left, 'mix-left');
             new SliderComponent(balance).setLimits(0, 100, 1).setValue(this.plugin.settings.mostUsedPercent)
@@ -296,7 +305,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           action: () => new VocabularyModal(this.app, this.plugin).open() },
       ] },
       { type: 'group', heading: 'Suggestions', items: [
-        { name: 'Maximum tags to add', desc: 'Limits preselected and directly applied tags.',
+        { name: 'Maximum tags to add', desc: 'Limits tags preselected for review and added by quick apply. You can manually choose more.',
           aliases: ['maximum tags to add'], control: { type: 'number', key: 'maxTagsToAdd', min: 1, max: 1000, step: 1,
             validate: value => Number.isInteger(value) && value >= 1 && value <= 1000 ? undefined : 'Enter a whole number from 1 to 1,000.' } },
         { name: 'Minimum match score', desc: 'Applies to preselected and directly added tags.',
