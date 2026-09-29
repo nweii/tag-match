@@ -1,8 +1,8 @@
 {
   "name": "obsidian-tag-match",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
-  "description": "Quickly find the right tags from your vault for a given note.",
+  "description": "Quickly find the right tags for each note with Jev, using your vault's tags and any guidance you provide.",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/nweii/tag-match.git" },
   "bugs": { "url": "https://github.com/nweii/tag-match/issues" },

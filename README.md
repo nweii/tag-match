@@ -21,26 +21,29 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 
 You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nweii/tag-match/releases/latest).
-2. Put them in `<vault>/.obsidian/plugins/tag-match/`, then reload Obsidian and enable Tag Match under **Settings → Community plugins**.
-3. On each device, open Tag Match settings, choose TypeSafe or OpenRouter, and create or select an Obsidian Secret containing its API key. Obsidian does not sync secret values.
-4. Open a Markdown note and run **Tag Match: Review tags for current note**. Select **Analyze note**, review the checked matches, then select **Add selected tags**.
+1. [Install Tag Match from Community plugins](https://community.obsidian.md/plugins/tag-match), or open **Settings → Community plugins → Browse** in Obsidian and search for **Tag Match**. Enable it after installing.
+2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
+3. Open a Markdown note and run **Tag Match: Review tags for current note**. Select **Analyze note**, review the checked matches, then select **Add selected tags**.
 
 For direct application, run **Tag Match: Add recommended tags to current note**. It analyzes the note and adds recommendations without a review dialog. Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
 
 The plugin uses Obsidian APIs available on desktop and mobile. The companion CLI requires a computer with Node.js 22 or later.
 
+### Manual installation
+
+Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nweii/tag-match/releases/latest). Put them in `<vault>/.obsidian/plugins/tag-match/`, reload Obsidian, and enable Tag Match under **Settings → Community plugins**.
+
 ## How Tag Match chooses tags
 
 ### Tags to consider
 
-By default, Tag Match considers all tags in a small vault. With more than 250 tags, it considers 250 tags or 20% of the available tags, whichever is larger. You can choose a specific number or percentage instead, or choose **All tags** to consider every tag.
+**Tags to consider** sets the size of the candidate pool. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
 
-When the selection is limited, 70% comes from your most-used tags and 30% is sampled from other tags, including rarely used ones. You can adjust that mix. The sample varies between notes, giving less-used tags a chance without checking your entire vocabulary every time.
+When the pool is limited, **Selection mix** divides it between your most-used tags and a sample of the rest. You can change that balance. The sample varies between notes, giving newer and forgotten tags a chance without checking your entire vocabulary every time.
 
 ### Suggestions and tagging context
 
-Tag Match preselects up to five tags with a match score of at least 75%. **Tags to consider** controls what the model sees; **Maximum tags to add** controls how many recommendations can go onto a note. Raise the minimum score for fewer recommendations.
+**Minimum match score** and **Maximum tags to add** control which matches are preselected for review or added directly. Raise the score or lower the limit for a more selective result. You can change the selection in review mode before adding tags.
 
 Use short rules for general guidance, such as “Tag substantial topics; skip passing mentions.” Give individual tags a definition when your use differs from their ordinary meaning:
 
