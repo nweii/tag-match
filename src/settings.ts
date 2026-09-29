@@ -183,12 +183,12 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       : cliStatus.kind === 'missing'
         ? `Requires Node.js 22 or later. Copy the install command, run it in ${Platform.isWin ? 'PowerShell' : 'a terminal'}, then reload Obsidian.`
         : cliStatus.kind === 'current'
-          ? `CLI up to date. CLI ${cliStatus.version} matches this plugin.`
+          ? `CLI ${cliStatus.version} installed.`
           : cliStatus.kind === 'older'
-            ? `CLI update available. Installed CLI ${cliStatus.version}; this plugin is ${this.plugin.manifest.version}. Run the update command, then reload Obsidian.`
+            ? `CLI ${cliStatus.version} installed. Optional update to ${this.plugin.manifest.version} available.`
             : cliStatus.kind === 'newer'
               ? `CLI ${cliStatus.version} is newer than this plugin (${this.plugin.manifest.version}).`
-              : 'CLI version couldn’t be determined. Update the CLI to match this plugin, then reload Obsidian.';
+              : 'CLI version couldn’t be determined. You can reinstall it using the update command.';
     const cliDescriptionContent = agentSetup && cliInstalled ? createFragment() : cliDescription;
     if (agentSetup && cliInstalled && typeof cliDescriptionContent !== 'string') {
       cliDescriptionContent.appendText(cliDescription);

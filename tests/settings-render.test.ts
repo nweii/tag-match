@@ -80,12 +80,12 @@ function rendered(tab: TagMatchSettingsTab, definition: Definition): Setting {
   return (tab as unknown as { renderSettingDefinition(value: Definition): Setting }).renderSettingDefinition(definition);
 }
 
-test('current desktop CLI shows its matching release without an update command', async () => {
+test('current desktop CLI shows its installed version without an update command', async () => {
   const { items, copied, tab } = setup(true);
   const definition = items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
   const setting = rendered(tab, definition);
-  assert.match((definition.desc as Fragment).textContent, /CLI up to date.*0\.1\.2 matches this plugin/);
+  assert.match((definition.desc as Fragment).textContent, /CLI 0\.1\.2 installed/);
   assert.match((definition.desc as Fragment).textContent, /\/Vault\/settings\/plugins\/tag-match\/tag-match\.mjs/);
   assert.equal(renderElement(setting).all('details').length, 0);
   const button = renderElement(setting).all('button')[0];
@@ -101,6 +101,9 @@ test('older and unknown CLIs offer an update while a newer CLI does not', () => 
     const definition = state.items.find(item => item.name === 'Use Tag Match with agents');
     assert.ok(definition);
     const setting = renderElement(rendered(state.tab, definition));
+    if (kind === 'older') assert.match((definition.desc as Fragment).textContent,
+      /CLI 0\.0\.9 installed\. Optional update to 0\.1\.2 available/);
+    else assert.match((definition.desc as Fragment).textContent, /You can reinstall it/);
     assert.equal(setting.all('button')[1]?.textContent, 'Copy CLI update command');
     assert.equal(setting.all('details')[0]?.all('summary')[0]?.textContent, 'Preview CLI update command');
   }

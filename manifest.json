@@ -1,7 +1,7 @@
 {
   "id": "tag-match",
   "name": "Tag Match",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "minAppVersion": "1.13.0",
   "description": "Quickly find the right tags for each note with Jev, using your vault's tags and any guidance you provide.",
   "author": "Nathan Cheng",
