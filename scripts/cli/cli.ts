@@ -1,11 +1,10 @@
-// Exposes shared Jev evaluation and tag suggestion as a JSON-only command-line interface.
+// Exposes shared Jev tag suggestion, review, and application as a JSON-only command-line interface.
 import { readFile } from 'node:fs/promises';
 import { stdin, stdout, stderr, argv } from 'node:process';
 import { normalizeConfig, record, type Config } from '../../src/config.ts';
-import { evaluate, suggest, type HttpResponse, type Transport } from '../../src/client.ts';
-import { buildBatches, noteSeed, selectCandidates, type EvaluationRequest, type Note, type TagCount } from '../../src/core.ts';
+import { suggest, type HttpResponse, type Transport } from '../../src/client.ts';
+import { buildBatches, noteSeed, selectCandidates, type Note, type TagCount } from '../../src/core.ts';
 import { applyReviewPlan, parseReviewPlan, quickApplyFile, reviewFile } from './cli-workflow.ts';
-import { resolveProvider } from '../../src/provider.ts';
 import { resolveCliCredential } from './credentials.ts';
 
 declare const __TAG_MATCH_VERSION__: string;
@@ -19,13 +18,9 @@ Commands:
   review    Analyze a Markdown file and return a review plan without writing
   apply     Apply explicit selections from a review plan without using the network
   quick-apply  Analyze a Markdown file and add complete recommendations directly
-  evaluate  Evaluate arbitrary Decisions API state and Noul questions
 
 Input for preview and suggest (JSON on stdin):
   {"note":{"title":"Example","body":"Text","existingTags":["notes"]},"tags":[{"tag":"design","count":12}]}
-
-Input for evaluate (JSON on stdin):
-  {"state":{"text":"Example"},"questions":{"relevant":{"type":"noul","instructions":"Is it relevant?","criteria":{"true":"Yes","false":"No"}}}}
 
 Input for review and quick-apply (JSON on stdin):
   {"tags":[{"tag":"design","count":12}],"existingTags":["inline-tag"]}
@@ -52,15 +47,14 @@ Successful output:
   preview returns selection reasons, inspection statuses, coverage, and batch counts. suggest also returns judgments and recommendations.
   review returns status "review-ready", a snapshot identity, evaluated tags, and proposed tags; it contains no API key.
   apply returns status "applied" or "no-op", path, and addedTags. quick-apply returns the same plus its analysis result.
-  evaluate returns the selected provider's Decisions API response. All success output is one JSON value on stdout; errors use stderr and exit nonzero.
+  All success output is one JSON value on stdout; errors use stderr and exit nonzero.
 
 Examples:
   cat input.json | tag-match preview --config /path/to/.obsidian/plugins/tag-match/data.json
   cat input.json | tag-match suggest --config /path/to/.obsidian/plugins/tag-match/data.json
   cat tags.json | tag-match review --note /path/to/note.md --config /path/to/.obsidian/plugins/tag-match/data.json
   cat apply.json | tag-match apply --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat tags.json | tag-match quick-apply --note /path/to/note.md --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat evaluation.json | tag-match evaluate --config /path/to/.obsidian/plugins/tag-match/data.json`;
+  cat tags.json | tag-match quick-apply --note /path/to/note.md --config /path/to/.obsidian/plugins/tag-match/data.json`;
 
 async function readStdin(): Promise<unknown> {
   let text = '';
@@ -79,8 +73,8 @@ function parseArgs(args: string[]): { command: string; configPath: string; noteP
   const configPath = configIndex >= 0 ? args[configIndex + 1] ?? '' : '';
   const noteIndex = args.indexOf('--note');
   const notePath = noteIndex >= 0 ? args[noteIndex + 1] ?? '' : '';
-  if (!['preview', 'suggest', 'review', 'apply', 'quick-apply', 'evaluate'].includes(command)) {
-    throw new Error('Choose preview, suggest, review, apply, quick-apply, or evaluate. Use --help for examples.');
+  if (!['preview', 'suggest', 'review', 'apply', 'quick-apply'].includes(command)) {
+    throw new Error('Choose preview, suggest, review, apply, or quick-apply. Use --help for examples.');
   }
   if (!configPath) throw new Error('Pass the plugin data file with --config PATH.');
   if (['review', 'quick-apply'].includes(command) && !notePath) throw new Error('Pass a Markdown file with --note PATH.');
@@ -126,11 +120,6 @@ function vocabularyInput(value: unknown): { tags: TagCount[]; existingTags: stri
     tags: record(value) ? value.tags : undefined }).tags, existingTags };
 }
 
-function evaluationInput(value: unknown, config: Config): EvaluationRequest {
-  if (!record(value) || !record(value.questions)) throw new Error('Input must contain state and a questions object.');
-  return { model: resolveProvider(config).model, state: value.state, questions: value.questions };
-}
-
 export const fetchTransport: Transport = async (request, apiKey, signal, endpoint): Promise<HttpResponse> => {
   const response = await fetch(endpoint, { method: 'POST', signal, headers: {
     authorization: `Bearer ${apiKey}`, 'content-type': 'application/json',
@@ -146,10 +135,9 @@ export async function run(args: string[]): Promise<unknown> {
   if (parsed.command === 'version') return { version: CLI_VERSION };
   let config = await loadConfig(parsed.configPath);
   const input = await readStdin();
-  if (['suggest', 'review', 'quick-apply', 'evaluate'].includes(parsed.command)) {
+  if (['suggest', 'review', 'quick-apply'].includes(parsed.command)) {
     config = await resolveCliCredential(config, parsed.configPath);
   }
-  if (parsed.command === 'evaluate') return evaluate(evaluationInput(input, config), resolveProvider(config), fetchTransport);
   if (parsed.command === 'apply') {
     if (!record(input) || !Array.isArray(input.selectedTags) || !input.selectedTags.every(tag => typeof tag === 'string')) {
       throw new Error('Input must contain a review plan and selectedTags array.');
