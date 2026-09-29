@@ -74,7 +74,6 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
   const selected = selectedTags.map(normalizeTag);
   if (selected.some(tag => !tag)) throw new Error('Selected tags cannot be empty.');
   if (new Set(selected.map(tagKey)).size !== selected.length) throw new Error('Selected tags must not contain duplicates.');
-  if (selected.length > config.maxTagsToAdd) throw new Error(`Select at most ${config.maxTagsToAdd} tags.`);
   const evaluated = new Set(plan.evaluatedTags.map(tagKey));
   const existing = new Set(plan.existingTags.map(tagKey));
   const rules = exclusionRules(config.excludedTags);
