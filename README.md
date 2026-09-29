@@ -37,7 +37,7 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 
 ### Tags to consider
 
-**Tags to consider** sets the size of the candidate pool. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
+**Selection method** sets how the candidate pool is chosen. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
 
 When the pool is limited, **Selection mix** divides it between your most-used tags and a sample of the rest. You can change that balance. The sample varies between notes, giving newer and forgotten tags a chance without checking your entire vocabulary every time. After a review, **Score more tags** draws another random sample of the same size from tags that haven't been scored yet.
 

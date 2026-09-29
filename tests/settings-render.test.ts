@@ -141,9 +141,9 @@ test('tag selection controls follow the selected range and preserve the legacy m
   assert.equal(visible(definitions('auto'), 'Share from most-used tags'), true);
   assert.equal(visible(definitions('percent'), 'Selection size'), true);
   assert.equal(visible(definitions('all'), 'Selection mix'), false);
-  const minimum = definitions('minimum').find(item => item.name === 'Tags to consider');
+  const minimum = definitions('minimum').find(item => item.name === 'Selection method');
   assert.equal(minimum?.control?.options?.minimum, 'Tags used at least X times');
-  const automatic = definitions('auto').find(item => item.name === 'Tags to consider');
+  const automatic = definitions('auto').find(item => item.name === 'Selection method');
   assert.equal(automatic?.control?.options?.minimum, undefined);
 });
 
@@ -217,7 +217,7 @@ test('mobile settings expose no local path, copy action, or preview', () => {
 
 test('selecting automatic mode considers every tag in a small vocabulary', async () => {
   const { items, tab } = setup(true, 101, 'percent');
-  const mode = items.find(item => item.name === 'Tags to consider');
+  const mode = items.find(item => item.name === 'Selection method');
   assert.ok(mode);
   const modeSetting = rendered(tab, mode);
   const select = renderElement(modeSetting).all('select')[0];

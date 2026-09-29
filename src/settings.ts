@@ -263,7 +263,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           } },
       ] },
       { type: 'group', heading: 'Tags to consider', items: [
-        { name: 'Tags to consider',
+        { name: 'Selection method', desc: 'How Tag Match picks the tags it scores for each note.',
           aliases: ['tags to consider', 'candidate pool'], control: { type: 'dropdown', key: 'poolMode', options: {
             auto: 'Default', all: 'All tags', percent: 'Percentage', count: 'Number',
             ...(this.plugin.settings.poolMode === 'minimum' ? { minimum: 'Tags used at least X times' } : {}),
