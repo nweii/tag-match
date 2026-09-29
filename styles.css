@@ -15,8 +15,8 @@
 .tag-match-disclosure summary:hover { color: var(--text-normal); }
 .tag-match-disclosure[open] > summary { margin-bottom: var(--size-4-3); }
 .tag-match-review .search-input-container { width: 100%; }
-.tag-match-adjustments { padding: var(--size-4-1) var(--size-4-4); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); }
-.tag-match-adjust-note { padding-block: var(--size-4-2); color: var(--text-muted); font-size: var(--font-ui-small); }
+.tag-match-adjustments { padding: var(--size-4-3) var(--size-4-4); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); }
+.tag-match-adjust-note { padding-bottom: var(--size-4-3); color: var(--text-muted); font-size: var(--font-ui-small); }
 .tag-match-adjustments .setting-item { padding-block: var(--size-4-3); }
 .tag-match-adjustments input[type='number'] { width: 7rem; }
 
