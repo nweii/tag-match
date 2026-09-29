@@ -25,7 +25,6 @@ export async function readNote(app: App, file: TFile): Promise<{ note: Note; sna
 
 export async function applySuggestions(app: App, file: TFile, snapshot: string,
   selected: string[], existingTags: string[], config: Config): Promise<void> {
-  if (selected.length > config.maxTagsToAdd) throw new Error(`Select at most ${config.maxTagsToAdd} tags.`);
   const vocabulary = new Set(inventory(app).map(item => tagKey(item.tag)));
   const rules = exclusionRules(config.excludedTags);
   if (selected.some(tag => !vocabulary.has(tagKey(tag)) || isExcluded(tag, rules))) {

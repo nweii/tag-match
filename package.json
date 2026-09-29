@@ -1,6 +1,6 @@
 {
   "name": "obsidian-tag-match",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "private": true,
   "description": "Quickly find the right tags for each note with Jev, using your vault's tags and any guidance you provide.",
   "license": "MIT",

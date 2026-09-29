@@ -9,6 +9,8 @@ import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
 import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
 
+declare const __TAG_MATCH_CLI_IDENTITY__: string;
+
 export default class TagMatchPlugin extends Plugin {
   declare settings: Config;
   agentCliStatus: AgentCliStatus = { kind: 'missing' };
@@ -46,20 +48,7 @@ export default class TagMatchPlugin extends Plugin {
     const migrated = migrateLegacyCredentials(loaded, this.app.secretStorage);
     this.settings = hydrateCredentials(migrated.config, this.app.secretStorage);
     if (migrated.changed) await this.saveData(persistedConfig(this.settings));
-    if (Platform.isDesktop) {
-      const pluginDirectory = normalizePath(`${this.app.vault.configDir}/plugins/${this.manifest.id}`);
-      const [cli, guide] = await Promise.all([
-        this.app.vault.adapter.exists(`${pluginDirectory}/tag-match.mjs`),
-        this.app.vault.adapter.exists(`${pluginDirectory}/AGENT-CLI.md`),
-      ]);
-      if (!cli || !guide) this.agentCliStatus = { kind: 'missing' };
-      else {
-        try {
-          const source = await this.app.vault.adapter.read(`${pluginDirectory}/tag-match.mjs`);
-          this.agentCliStatus = resolveAgentCliStatus(this.manifest.version, source, true);
-        } catch { this.agentCliStatus = { kind: 'unknown' }; }
-      }
-    }
+    await this.refreshAgentCliStatus();
     this.addSettingTab(new TagMatchSettingsTab(this.app, this));
     this.addCommand({ id: 'find-matching-tags', name: 'Review tags for current note',
       checkCallback: checking => {
@@ -75,6 +64,23 @@ export default class TagMatchPlugin extends Plugin {
         return true;
       } });
     this.addRibbonIcon('tags', 'Review tags for current note', () => { void this.openReview(); });
+  }
+
+  async refreshAgentCliStatus(): Promise<void> {
+    if (!Platform.isDesktop) { this.agentCliStatus = { kind: 'missing' }; return; }
+    const pluginDirectory = normalizePath(`${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+    const cliPath = `${pluginDirectory}/tag-match.mjs`;
+    const guidePath = `${pluginDirectory}/AGENT-CLI.md`;
+    const [cli, guide] = await Promise.all([
+      this.app.vault.adapter.exists(cliPath), this.app.vault.adapter.exists(guidePath),
+    ]);
+    if (!cli || !guide) { this.agentCliStatus = { kind: 'missing' }; return; }
+    try {
+      const source = await this.app.vault.adapter.read(cliPath);
+      this.agentCliStatus = resolveAgentCliStatus(
+        typeof __TAG_MATCH_CLI_IDENTITY__ === 'string' ? __TAG_MATCH_CLI_IDENTITY__ : null,
+        this.manifest.version, source, true);
+    } catch { this.agentCliStatus = { kind: 'unknown', version: null }; }
   }
 
   async saveSettings() {

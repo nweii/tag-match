@@ -26,7 +26,7 @@ function renderElement(setting: Setting): RenderElement {
 
 function setup(desktop: boolean, eligible = 3,
   poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all' = 'auto', installed = desktop,
-  settings: Partial<Config> = {}, cliKind: 'current' | 'older' | 'unknown' | 'newer' | 'missing' = installed ? 'current' : 'missing',
+  settings: Partial<Config> = {}, cliKind: 'current' | 'different' | 'newer' | 'unknown' | 'missing' = installed ? 'current' : 'missing',
   secrets: Record<string, string> = {}) {
   (Platform as { isDesktop: boolean }).isDesktop = desktop;
   const copied: string[] = [];
@@ -38,14 +38,15 @@ function setup(desktop: boolean, eligible = 3,
   const app = { vault: { configDir: 'settings', adapter: new Adapter('/Vault') },
     secretStorage: { getSecret: (id: string) => secrets[id] ?? null },
     metadataCache: { getTags: () => Object.fromEntries(Array.from({ length: eligible }, (_, index) => [`#tag-${index}`, eligible - index])) } };
-  const agentCliStatus = cliKind === 'missing' || cliKind === 'unknown' ? { kind: cliKind }
-    : { kind: cliKind, version: cliKind === 'older' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.2' };
+  const agentCliStatus = cliKind === 'missing' ? { kind: cliKind }
+    : { kind: cliKind, version: cliKind === 'different' ? '0.0.9' : cliKind === 'newer' ? '0.2.0' : '0.1.2' };
   const plugin = { manifest: { id: 'tag-match', version: '0.1.2' }, agentCliStatus,
-    settings: { ...DEFAULTS, poolMode, ...settings }, saveSettings: async () => {} };
+    settings: { ...DEFAULTS, poolMode, ...settings }, saveSettings: async () => {},
+    refreshAgentCliStatus: async () => { plugin.agentCliStatus = { kind: 'current', version: '0.1.2' }; } };
   const tab = new TagMatchSettingsTab(app as never, plugin as never);
   const definitions = tab.getSettingDefinitions() as Definition[];
   const items = definitions.flatMap(item => item.items ?? []);
-  return { items, copied, tab };
+  return { items, copied, tab, plugin };
 }
 
 test('a synced secret reference without a local key prompts for this device', () => {
@@ -85,33 +86,53 @@ test('current desktop CLI shows its installed version without an update command'
   const definition = items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
   const setting = rendered(tab, definition);
-  assert.match((definition.desc as Fragment).textContent, /CLI 0\.1\.2 installed/);
+  assert.match((definition.desc as Fragment).textContent, /CLI 0\.1\.2 installed\. Up to date for this plugin/);
   assert.match((definition.desc as Fragment).textContent, /\/Vault\/settings\/plugins\/tag-match\/tag-match\.mjs/);
   assert.equal(renderElement(setting).all('details').length, 0);
-  const button = renderElement(setting).all('button')[0];
+  const button = renderElement(setting).all('button')[1];
   await button?.click?.();
   assert.equal(copied.length, 1);
   assert.match(copied[0]!, /\/Vault\/settings\/plugins\/tag-match\/AGENT-CLI\.md/);
-  assert.equal(renderElement(setting).all('button').length, 1);
+  assert.equal(renderElement(setting).all('button').length, 2);
 });
 
-test('older and unknown CLIs offer an update while a newer CLI does not', () => {
-  for (const kind of ['older', 'unknown'] as const) {
+test('different and unknown CLI builds offer an update command', () => {
+  for (const kind of ['different', 'unknown'] as const) {
     const state = setup(true, 3, 'auto', true, {}, kind);
     const definition = state.items.find(item => item.name === 'Use Tag Match with agents');
     assert.ok(definition);
     const setting = renderElement(rendered(state.tab, definition));
-    if (kind === 'older') assert.match((definition.desc as Fragment).textContent,
-      /CLI 0\.0\.9 installed\. Optional update to 0\.1\.2 available/);
-    else assert.match((definition.desc as Fragment).textContent, /You can reinstall it/);
-    assert.equal(setting.all('button')[1]?.textContent, 'Copy CLI update command');
+    if (kind === 'different') assert.match((definition.desc as Fragment).textContent,
+      /CLI 0\.0\.9 installed\. An optional CLI update is available/);
+    else assert.match((definition.desc as Fragment).textContent, /can’t tell whether it matches this plugin/);
+    assert.equal(setting.all('button')[2]?.textContent, 'Copy CLI update command');
     assert.equal(setting.all('details')[0]?.all('summary')[0]?.textContent, 'Preview CLI update command');
   }
-  const newer = setup(true, 3, 'auto', true, {}, 'newer');
-  const definition = newer.items.find(item => item.name === 'Use Tag Match with agents');
+});
+
+test('a newer CLI does not offer a command that would downgrade it', () => {
+  const state = setup(true, 3, 'auto', true, {}, 'newer');
+  const definition = state.items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
-  assert.match((definition.desc as Fragment).textContent, /CLI 0\.2\.0 is newer than this plugin/);
-  assert.equal(renderElement(rendered(newer.tab, definition)).all('details').length, 0);
+  assert.match((definition.desc as Fragment).textContent, /CLI 0\.2\.0 installed\. It is newer than this plugin \(0\.1\.2\)/);
+  const setting = renderElement(rendered(state.tab, definition));
+  assert.equal(setting.all('button').length, 2);
+  assert.equal(setting.all('details').length, 0);
+});
+
+test('Check CLI status refreshes the displayed status without reloading Obsidian', async () => {
+  const state = setup(true, 3, 'auto', true, {}, 'different');
+  const definition = state.items.find(item => item.name === 'Use Tag Match with agents');
+  assert.ok(definition);
+  let updates = 0;
+  state.tab.update = () => { updates++; };
+  await renderElement(rendered(state.tab, definition)).all('button')[0]?.click?.();
+  assert.equal(updates, 1);
+  assert.deepEqual(state.plugin.agentCliStatus, { kind: 'current', version: '0.1.2' });
+  const refreshed = (state.tab.getSettingDefinitions() as Definition[]).flatMap(item => item.items ?? [])
+    .find(item => item.name === 'Use Tag Match with agents');
+  assert.ok(refreshed);
+  assert.match((refreshed.desc as Fragment).textContent, /Up to date for this plugin/);
 });
 
 test('tag selection controls follow the selected range and preserve the legacy minimum option', () => {
@@ -120,9 +141,9 @@ test('tag selection controls follow the selected range and preserve the legacy m
   assert.equal(visible(definitions('auto'), 'Share from most-used tags'), true);
   assert.equal(visible(definitions('percent'), 'Selection size'), true);
   assert.equal(visible(definitions('all'), 'Selection mix'), false);
-  const minimum = definitions('minimum').find(item => item.name === 'Tags to consider');
+  const minimum = definitions('minimum').find(item => item.name === 'Selection method');
   assert.equal(minimum?.control?.options?.minimum, 'Tags used at least X times');
-  const automatic = definitions('auto').find(item => item.name === 'Tags to consider');
+  const automatic = definitions('auto').find(item => item.name === 'Selection method');
   assert.equal(automatic?.control?.options?.minimum, undefined);
 });
 
@@ -135,6 +156,8 @@ test('percentage size and selection mix show their live counts and balance', asy
   assert.equal((mix.desc as Fragment).textContent, '491 tags = 343 most-used + 148 sampled');
   const sizeSetting = rendered(state.tab, size);
   const renderedMix = renderElement(rendered(state.tab, mix));
+  // Live refreshes find displays by class across the whole tab, so the mix row must be inside it.
+  (state.tab.containerEl as unknown as { children: unknown[] }).children.push(renderedMix);
   assert.match(renderedMix.textContent, /Most-used 70%30% Other tags/);
   const slider = renderedMix.all('input')[0];
   await slider?.change?.(60);
@@ -143,6 +166,9 @@ test('percentage size and selection mix show their live counts and balance', asy
   await sizeSlider?.change?.(30);
   assert.match(renderElement(sizeSetting).textContent, /30% of all tags\. Current selection: 736 tags/);
   assert.match(renderedMix.textContent, /736 tags = 441 most-used \+ 295 sampled/);
+  // The balance slider must survive a live refresh rather than being replaced by the count text.
+  assert.equal(renderedMix.all('input').length, 1);
+  assert.match(renderedMix.textContent, /Most-used 60%40% Other tags/);
 });
 
 test('tagging prompt copies current counts and context without credentials or local paths', async () => {
@@ -171,9 +197,9 @@ test('desktop without the CLI offers a pinned install command', async () => {
   const definition = items.find(item => item.name === 'Use Tag Match with agents');
   assert.ok(definition);
   const setting = rendered(tab, definition);
-  assert.equal(renderElement(setting).all('button')[0]?.textContent, 'Copy install command');
+  assert.equal(renderElement(setting).all('button')[1]?.textContent, 'Copy install command');
   assert.equal(renderElement(setting).all('details')[0]?.all('summary')[0]?.textContent, 'Preview install command');
-  await renderElement(setting).all('button')[0]?.click?.();
+  await renderElement(setting).all('button')[1]?.click?.();
   assert.match(copied[0]!, /curl -fsSL/);
   assert.match(copied[0]!, /releases\/download\/0\.1\.2\/install-cli\.mjs/);
   assert.match(copied[0]!, /'\/Vault\/settings\/plugins\/tag-match'/);
@@ -191,7 +217,7 @@ test('mobile settings expose no local path, copy action, or preview', () => {
 
 test('selecting automatic mode considers every tag in a small vocabulary', async () => {
   const { items, tab } = setup(true, 101, 'percent');
-  const mode = items.find(item => item.name === 'Tags to consider');
+  const mode = items.find(item => item.name === 'Selection method');
   assert.ok(mode);
   const modeSetting = rendered(tab, mode);
   const select = renderElement(modeSetting).all('select')[0];

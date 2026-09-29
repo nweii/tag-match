@@ -2,22 +2,22 @@
 export interface AgentSetup { cliPath: string; guidePath: string; installCommand: string }
 export type AgentCliStatus =
   | { kind: 'missing' }
-  | { kind: 'current' | 'older' | 'newer'; version: string }
-  | { kind: 'unknown' };
+  | { kind: 'current' | 'different' | 'newer' | 'unknown'; version: string | null };
 
 export function agentCliVersion(source: string): string | null {
   return source.match(/^\/\/ tag-match-cli-version: (\S+)$/m)?.[1] ?? null;
 }
 
-function semverParts(version: string): { core: number[]; prerelease: string[] | null } | null {
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
-  if (!match) return null;
-  return { core: [Number(match[1]), Number(match[2]), Number(match[3])],
-    prerelease: match[4]?.split('.') ?? null };
+export function agentCliIdentity(source: string): string | null {
+  return source.match(/^\/\/ tag-match-cli-identity: (sha256:[a-f0-9]{64})$/m)?.[1] ?? null;
 }
 
 export function compareVersions(left: string, right: string): number | null {
-  const a = semverParts(left); const b = semverParts(right);
+  const parse = (value: string) => {
+    const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+    return match ? { core: [Number(match[1]), Number(match[2]), Number(match[3])], prerelease: match[4]?.split('.') ?? null } : null;
+  };
+  const a = parse(left); const b = parse(right);
   if (!a || !b) return null;
   for (let index = 0; index < 3; index++) {
     if (a.core[index] !== b.core[index]) return Math.sign(a.core[index]! - b.core[index]!);
@@ -39,14 +39,15 @@ export function compareVersions(left: string, right: string): number | null {
   return 0;
 }
 
-export function resolveAgentCliStatus(expectedVersion: string, cliSource: string | null,
+export function resolveAgentCliStatus(expectedIdentity: string | null, expectedVersion: string, cliSource: string | null,
   guideInstalled: boolean): AgentCliStatus {
   if (cliSource === null || !guideInstalled) return { kind: 'missing' };
   const version = agentCliVersion(cliSource);
-  if (!version) return { kind: 'unknown' };
-  const comparison = compareVersions(version, expectedVersion);
-  if (comparison === null) return { kind: 'unknown' };
-  return { kind: comparison === 0 ? 'current' : comparison < 0 ? 'older' : 'newer', version };
+  const identity = agentCliIdentity(cliSource);
+  if (identity && identity === expectedIdentity) return { kind: 'current', version };
+  if (version && (compareVersions(version, expectedVersion) ?? 0) > 0) return { kind: 'newer', version };
+  if (!identity || !expectedIdentity) return { kind: 'unknown', version };
+  return { kind: 'different', version };
 }
 
 function shellQuote(value: string, windows: boolean): string {

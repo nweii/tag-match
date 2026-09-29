@@ -48,13 +48,16 @@ test('apply parses only the validated fields it uses from a review plan', async 
   assert.throws(() => parseReviewPlan({ ...plan, result: null }), /review plan is invalid/);
 });
 
-test('apply refuses stale notes, invalid selections, exclusions, and excess tags', async () => {
+test('apply refuses stale notes, invalid selections, and exclusions while allowing deliberate selections above the quick cap', async () => {
   const path = await fixture();
   const plan = await reviewFile(path, tags, config(), transport);
   await assert.rejects(applyReviewPlan(plan, ['design', '#design'], config()), /must not contain duplicates/);
   await assert.rejects(applyReviewPlan(plan, ['unknown'], config()), /must come from this review plan/);
   await assert.rejects(applyReviewPlan(plan, ['private'], config({ excludedTags: 'private' })), /excluded/);
-  await assert.rejects(applyReviewPlan(plan, ['design', 'writing'], config({ maxTagsToAdd: 1 })), /at most 1/);
+  const manualPath = await fixture();
+  const manualPlan = await reviewFile(manualPath, tags, config({ maxTagsToAdd: 1 }), transport);
+  const manual = await applyReviewPlan(manualPlan, ['design', 'writing'], config({ maxTagsToAdd: 1 }));
+  assert.deepEqual(manual.addedTags, ['design', 'writing']);
   await writeFile(path, 'Changed elsewhere\n');
   await assert.rejects(applyReviewPlan(plan, ['design'], config()), /changed after analysis/);
   assert.equal(await readFile(path, 'utf8'), 'Changed elsewhere\n');
@@ -66,6 +69,12 @@ test('quick apply writes recommendations and reports no-op when none qualify', a
   assert.equal(applied.status, 'applied');
   assert.deepEqual(applied.addedTags, ['design']);
   assert.match(await readFile(appliedPath, 'utf8'), /design/);
+
+  const cappedPath = await fixture('Body\n');
+  const allPositive: Transport = async request => ({ status: 200, json: { answers: Object.fromEntries(
+    Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } });
+  const capped = await quickApplyFile(cappedPath, tags, config({ maxTagsToAdd: 1 }), allPositive);
+  assert.equal(capped.addedTags.length, 1);
 
   const noOpPath = await fixture('Another body\n');
   const noOp = await quickApplyFile(noOpPath, tags, config({ minProbability: 0.95 }), transport);
