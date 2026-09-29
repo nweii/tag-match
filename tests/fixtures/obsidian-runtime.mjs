@@ -91,7 +91,7 @@ export class Setting {
     this.controlEl = this.settingEl.createDiv('setting-item-control');
     if (container) container.children.push(this.settingEl);
   }
-  setName() { return this; }
+  setName(value) { this.settingEl.settingName = value; return this; }
   setDesc(value) {
     this.description = value;
     if (Array.isArray(value?.children)) { this.descEl.text = value.text ?? ''; this.descEl.children = value.children; }
@@ -115,6 +115,12 @@ export class Setting {
     callback(dropdown); return this;
   }
   addSlider(callback) { callback(new SliderComponent(this.controlEl)); return this; }
+  addText(callback) {
+    const element = this.controlEl.createEl('input');
+    const text = { inputEl: element, setValue: value => { element.value = value; return text; },
+      onChange: handler => { element.change = handler; return text; } };
+    callback(text); return this;
+  }
   addSearch(callback) {
     const element = this.controlEl.createEl('input');
     const search = { setPlaceholder: text => { element.placeholder = text; return search; },

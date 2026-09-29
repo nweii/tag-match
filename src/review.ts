@@ -1,20 +1,19 @@
 // Presents candidate coverage and selectable results before any note changes occur.
-import { type App, ButtonComponent, Modal, Notice, SearchComponent, type TFile } from 'obsidian';
+import { type App, ButtonComponent, Modal, Notice, SearchComponent, Setting, type TFile } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
-import { type Config } from './config.ts';
+import { type Config, normalizeConfig } from './config.ts';
 import { type CandidatePool, type Note, type TagCount, selectCandidates, buildBatches, noteSeed, rankJudgments, recommendations, tagKey } from './core.ts';
 import { suggest, type SuggestionResult } from './client.ts';
 import { inventory, applySuggestions } from './vault.ts';
 import { resolveProvider } from './provider.ts';
 import { hydrateCredentials } from './secret-storage.ts';
-import { PAGE_SIZE, inspectionLabel, listEnd, renderInspectionRows } from './tag-list.ts';
+import { PAGE_SIZE, inspectionLabel, listEnd } from './tag-list.ts';
 
 export class ReviewModal extends Modal {
   private controller = new AbortController();
   private result: SuggestionResult | null = null;
   private selected = new Set<string>();
   private query = '';
-  private candidateLimit = PAGE_SIZE;
   private resultsLimit = PAGE_SIZE;
   private rows!: HTMLElement;
   private status!: HTMLElement;
@@ -22,12 +21,17 @@ export class ReviewModal extends Modal {
   private resultsSearch?: HTMLInputElement;
   private nextPool: CandidatePool | null = null;
   private sampleSize = 0;
+  private pool!: CandidatePool;
+  private overview!: HTMLElement;
+  private adjustments!: HTMLElement;
+  private analyzeButton!: ButtonComponent;
   private sampleButton!: ButtonComponent;
   private plugin: TagMatchPlugin;
   private file: TFile;
   private note: Note;
   private snapshot: string;
-  private readonly config: Config;
+  // A per-review copy: adjustments made in the modal never change the saved defaults.
+  private config: Config;
   private readonly tags: TagCount[];
   private running = false;
   private applying = false;
@@ -47,45 +51,11 @@ export class ReviewModal extends Modal {
     this.setTitle('Review tags');
     contentEl.addClass('tag-match-review');
     contentEl.createEl('p', { cls: 'tag-match-note-title', text: this.note.title });
-    const provider = resolveProvider(this.config);
-    const pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
-    let prepared: ReturnType<typeof buildBatches>;
-    try { prepared = buildBatches(this.note, pool, this.config); }
-    catch (error) {
-      contentEl.createEl('p', { cls: 'tag-match-status', attr: { role: 'alert' }, text: error instanceof Error ? error.message : 'Could not prepare this note for analysis.' });
-      new ButtonComponent(contentEl.createDiv('tag-match-footer')).setButtonText('Close').onClick(() => this.close());
-      return;
-    }
-    // Later samples match the first sample's random share, or the whole pool when it had none.
-    this.sampleSize = pool.discovery || pool.tags.length;
-
-    const overview = contentEl.createDiv('tag-match-overview');
-    const headline = overview.createEl('p', { cls: 'tag-match-overview-headline' });
-    headline.createSpan({ cls: 'tag-match-overview-count', text: pool.tags.length.toLocaleString() });
-    headline.appendText(` ${pool.tags.length === 1 ? 'tag' : 'tags'} to score`);
-    headline.createSpan({ cls: 'tag-match-detail', text: ` of ${pool.eligible.toLocaleString()} available` });
-    overview.createEl('p', { cls: 'tag-match-overview-mix', text: this.config.poolMode === 'all' ? 'Every available tag'
-      : this.config.poolMode === 'minimum' ? `Tags used at least ${this.config.minimumUses.toLocaleString()} times`
-        : !pool.discovery ? 'Your most-used tags'
-          : !pool.frequent ? 'Sampled at random from across your vault'
-            : `${pool.frequent.toLocaleString()} most-used and ${pool.discovery.toLocaleString()} sampled at random` });
-    const sends = overview.createEl('p', { cls: 'tag-match-overview-sends', text: `Sends the title, description, tags, guidance, and ${prepared.truncated ? 'excerpts of the note' : 'full note'} (${prepared.sentChars.toLocaleString()} characters) to ` });
-    sends.createSpan({ cls: 'tag-match-nowrap', text: provider.model });
-    sends.appendText(` via ${provider.label} in ${prepared.batches.length} ${prepared.batches.length === 1 ? 'request' : 'requests'}.`);
-
-    const candidateDetails = contentEl.createEl('details', { cls: 'tag-match-candidates' });
-    candidateDetails.createEl('summary', { text: 'Show tags to score' });
-    const candidateSearch = new SearchComponent(candidateDetails).setPlaceholder('Search all vault tags')
-      .onChange(value => { this.query = value.toLowerCase(); this.candidateLimit = PAGE_SIZE; this.renderCandidates(pool, candidateRows); });
-    candidateSearch.inputEl.setAttribute('aria-label', 'Search all vault tags');
-    const candidateRows = candidateDetails.createDiv('tag-match-list');
-    this.renderCandidates(pool, candidateRows);
-
+    this.overview = contentEl.createDiv('tag-match-overview');
+    const adjust = contentEl.createEl('details', { cls: 'tag-match-disclosure' });
+    adjust.createEl('summary', { text: 'Adjust for this review' });
+    this.adjustments = adjust.createDiv('tag-match-adjustments');
     this.status = contentEl.createEl('p', { cls: 'tag-match-status', attr: { role: 'status', 'aria-live': 'polite' } });
-    if (!pool.tags.length) this.status.setText(pool.total === 0
-      ? 'No vault tags yet. Add a tag to a note, then try again.'
-      : pool.eligible === 0 ? 'Every vault tag is excluded or already on this note.'
-        : 'No tags meet the current selection. Change Tags to consider in settings.');
 
     const resultsArea = contentEl.createDiv('tag-match-results-area');
     resultsArea.hidden = true;
@@ -99,46 +69,128 @@ export class ReviewModal extends Modal {
 
     const footer = contentEl.createDiv('tag-match-footer');
     new ButtonComponent(footer).setButtonText('Close').onClick(() => this.close());
-    const analyzeButton = new ButtonComponent(footer).setButtonText('Analyze note').setCta().setDisabled(!pool.tags.length);
+    this.analyzeButton = new ButtonComponent(footer).setButtonText('Analyze note').setCta()
+      .onClick(() => this.analyze(adjust, resultsArea));
     this.addButton = new ButtonComponent(footer).setButtonText('Add tags').setCta().setDisabled(true)
       .onClick(() => this.addSelected());
     this.addButton.buttonEl.hidden = true;
-    analyzeButton.onClick(async () => {
-      if (this.running) return;
-      if (!this.plugin.beginRun(this.file.path, this.controller)) {
-        new Notice('Tag Match is already analyzing this note.'); return;
-      }
-      this.running = true;
-      analyzeButton.setDisabled(true);
-      candidateDetails.open = false;
-      this.status.setText(`Scoring ${tagCount(pool.tags.length)}…`);
-      try {
-        const config = hydrateCredentials(this.config, this.app.secretStorage);
-        this.result = await suggest(this.note, this.tags, config, this.plugin.transport,
-          this.controller.signal, progress => { this.status.setText(`Scored ${progress.complete.toLocaleString()} of ${tagCount(progress.total)}…`); }, pool);
-        this.selected = new Set(this.result.recommended.map(item => item.tag));
-        this.query = '';
-        this.resultsLimit = PAGE_SIZE;
-        const recommended = this.result.recommended.length;
-        const minimum = percent(this.config.minProbability);
-        this.status.setText(`Scored ${tagCount(this.result.judgments.length)}. ${recommended
-          ? `${recommended.toLocaleString()} reached ${minimum} and ${recommended === 1 ? 'is' : 'are'} preselected.`
-          : `None reached ${minimum}; the closest matches are listed first.`}${this.result.truncated ? ' Used excerpts of the note.' : ''}`);
-        overview.hidden = true;
-        candidateDetails.hidden = true;
-        analyzeButton.buttonEl.hidden = true;
-        this.addButton.buttonEl.hidden = false;
-        resultsArea.hidden = false;
-        this.renderResults();
-        this.prepareNextSample();
-        this.resultsSearch?.focus();
-      } catch (error) {
-        if (!this.controller.signal.aborted) {
-          this.status.setText(`${error instanceof Error ? error.message : 'Analysis failed.'} No tags were applied. Try again.`);
-          analyzeButton.setDisabled(false);
-        }
-      } finally { this.running = false; this.plugin.endRun(this.file.path, this.controller); }
+    this.renderAdjustments();
+    this.refreshSelection();
+  }
+
+  /** Recomputes the candidate pool and summary from the review's current settings. */
+  private refreshSelection() {
+    const pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
+    this.pool = pool;
+    this.overview.empty();
+    this.status.setText('');
+    let prepared: ReturnType<typeof buildBatches>;
+    try { prepared = buildBatches(this.note, pool, this.config); }
+    catch (error) {
+      this.overview.hidden = true;
+      this.status.setText(error instanceof Error ? error.message : 'Could not prepare this note for analysis.');
+      this.analyzeButton.setDisabled(true);
+      return;
+    }
+    this.overview.hidden = false;
+    // Later samples match the first sample's random share, or the whole pool when it had none.
+    this.sampleSize = pool.discovery || pool.tags.length;
+    const provider = resolveProvider(this.config);
+    const headline = this.overview.createEl('p', { cls: 'tag-match-overview-headline' });
+    headline.createSpan({ cls: 'tag-match-overview-count', text: pool.tags.length.toLocaleString() });
+    headline.appendText(` ${pool.tags.length === 1 ? 'tag' : 'tags'} to score`);
+    headline.createSpan({ cls: 'tag-match-detail', text: ` of ${pool.eligible.toLocaleString()} available` });
+    this.overview.createEl('p', { cls: 'tag-match-overview-mix', text: this.config.poolMode === 'all' ? 'Every available tag'
+      : this.config.poolMode === 'minimum' ? `Tags used at least ${this.config.minimumUses.toLocaleString()} times`
+        : !pool.discovery ? 'Your most-used tags'
+          : !pool.frequent ? 'Sampled at random from across your vault'
+            : `${pool.frequent.toLocaleString()} most-used and ${pool.discovery.toLocaleString()} sampled at random` });
+    const sends = this.overview.createEl('p', { cls: 'tag-match-overview-sends', text: `Sends the title, description, tags, guidance, and ${prepared.truncated ? 'excerpts of the note' : 'full note'} (${prepared.sentChars.toLocaleString()} characters) to ` });
+    sends.createSpan({ cls: 'tag-match-nowrap', text: provider.model });
+    sends.appendText(` via ${provider.label} in ${prepared.batches.length} ${prepared.batches.length === 1 ? 'request' : 'requests'}.`);
+    if (!pool.tags.length) this.status.setText(pool.total === 0
+      ? 'No vault tags yet. Add a tag to a note, then try again.'
+      : pool.eligible === 0 ? 'Every vault tag is excluded or already on this note.'
+        : 'No tags meet this selection. Adjust it for this review or in Tag Match settings.');
+    this.analyzeButton.setDisabled(!pool.tags.length);
+  }
+
+  /** Mirrors the selection settings for this review only, so a one-off change never rewrites the defaults. */
+  private renderAdjustments() {
+    const container = this.adjustments;
+    container.empty();
+    container.createEl('p', { cls: 'tag-match-adjust-note', text: 'Changes apply to this review only. Defaults come from Tag Match settings.' });
+    const update = (patch: Partial<Config>, rebuild = false) => {
+      this.config = normalizeConfig({ ...this.config, ...patch });
+      if (rebuild) this.renderAdjustments();
+      this.refreshSelection();
+    };
+    const mode = this.config.poolMode;
+    new Setting(container).setName('Tags to consider').addDropdown(dropdown => dropdown.addOptions({
+      auto: 'Default', all: 'All tags', percent: 'Percentage', count: 'Number',
+      ...(this.plugin.settings.poolMode === 'minimum' ? { minimum: 'Tags used at least X times' } : {}),
+    }).setValue(mode).onChange(value => update({ poolMode: value as Config['poolMode'] }, true)));
+    if (mode === 'percent') {
+      new Setting(container).setName('Selection size').setDesc('Share of all tags').addSlider(slider => slider
+        .setLimits(1, 100, 1).setValue(this.config.poolPercent).setDisplayFormat(value => `${value}%`)
+        .onChange(value => update({ poolPercent: value })));
+    }
+    const whole = (key: 'poolCount' | 'minimumUses', name: string) => new Setting(container).setName(name).addText(text => {
+      text.inputEl.type = 'number';
+      text.inputEl.min = '1';
+      text.setValue(String(this.config[key])).onChange(value => {
+        const number = Number(value);
+        if (Number.isInteger(number) && number >= 1) update({ [key]: number });
+      });
     });
+    if (mode === 'count') whole('poolCount', 'Selection size');
+    if (mode === 'minimum') whole('minimumUses', 'Minimum uses');
+    if (['auto', 'percent', 'count'].includes(mode)) {
+      const mixLabel = (value: number) => `Most-used ${value}% · sampled ${100 - value}%`;
+      const mix = new Setting(container).setName('Selection mix').setDesc(mixLabel(this.config.mostUsedPercent));
+      mix.addSlider(slider => slider.setLimits(0, 100, 1).setValue(this.config.mostUsedPercent).setDisplayFormat(() => '').onChange(value => {
+        mix.setDesc(mixLabel(value)); update({ mostUsedPercent: value });
+      }));
+    }
+  }
+
+  private async analyze(adjust: HTMLDetailsElement, resultsArea: HTMLElement) {
+    const pool = this.pool;
+    if (this.running || !pool.tags.length) return;
+    if (!this.plugin.beginRun(this.file.path, this.controller)) {
+      new Notice('Tag Match is already analyzing this note.'); return;
+    }
+    this.running = true;
+    this.analyzeButton.setDisabled(true);
+    adjust.open = false;
+    adjust.hidden = true;
+    this.status.setText(`Scoring ${tagCount(pool.tags.length)}…`);
+    try {
+      const config = hydrateCredentials(this.config, this.app.secretStorage);
+      this.result = await suggest(this.note, this.tags, config, this.plugin.transport,
+        this.controller.signal, progress => { this.status.setText(`Scored ${progress.complete.toLocaleString()} of ${tagCount(progress.total)}…`); }, pool);
+      this.selected = new Set(this.result.recommended.map(item => item.tag));
+      this.query = '';
+      this.resultsLimit = PAGE_SIZE;
+      const recommended = this.result.recommended.length;
+      const minimum = percent(this.config.minProbability);
+      this.status.setText(`Scored ${tagCount(this.result.judgments.length)}. ${recommended
+        ? `${recommended.toLocaleString()} reached ${minimum} and ${recommended === 1 ? 'is' : 'are'} preselected.`
+        : `None reached ${minimum}; the closest matches are listed first.`}${this.result.truncated ? ' Used excerpts of the note.' : ''}`);
+      this.overview.hidden = true;
+      this.analyzeButton.buttonEl.hidden = true;
+      this.addButton.buttonEl.hidden = false;
+      resultsArea.hidden = false;
+      this.renderResults();
+      this.prepareNextSample();
+      this.resultsSearch?.focus();
+    } catch (error) {
+      if (!this.controller.signal.aborted) {
+        this.status.setText(`${error instanceof Error ? error.message : 'Analysis failed.'} No tags were applied. Try again.`);
+        this.analyzeButton.setDisabled(false);
+        adjust.hidden = false;
+      }
+    } finally { this.running = false; this.plugin.endRun(this.file.path, this.controller); }
   }
 
   private async analyzeAnotherSample() {
@@ -194,21 +246,6 @@ export class ReviewModal extends Modal {
       new Notice(error instanceof Error ? error.message : 'Could not apply tags.');
       this.addButton.setDisabled(!this.selected.size);
     } finally { this.applying = false; }
-  }
-
-  private renderCandidates(pool: CandidatePool, rows: HTMLElement) {
-    if (this.query) {
-      renderInspectionRows(rows, pool.inspected.filter(item => item.tag.toLowerCase().includes(this.query)), this.candidateLimit,
-        () => { this.candidateLimit += PAGE_SIZE; this.renderCandidates(pool, rows); });
-      return;
-    }
-    // Without a query the list previews the selection, sampled tags first because they are the part that varies by note.
-    const included = pool.inspected.filter(item => item.status === 'included');
-    const sampled = included.filter(item => item.reason === 'discovery');
-    const ordered = [...sampled, ...included.filter(item => item.reason !== 'discovery')];
-    renderInspectionRows(rows, ordered, this.candidateLimit, () => { this.candidateLimit += PAGE_SIZE; this.renderCandidates(pool, rows); },
-      sampled.length ? item => item.reason === 'discovery' ? `Sampled for this note (${sampled.length.toLocaleString()})`
-        : `Most-used (${(included.length - sampled.length).toLocaleString()})` : undefined);
   }
 
   private renderResults() {

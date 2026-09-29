@@ -28,11 +28,6 @@ test('review keeps its previewed selection while refreshing the captured secret'
   assert.match(content.textContent, /1 tag to score of 1 available/);
 
   counts = { '#design': 3, '#writing': 2 };
-  const search = content.all('input').find(input => input.placeholder === 'Search all vault tags');
-  assert.ok(search);
-  search.change?.('writing');
-  assert.match(content.all('details')[0]!.textContent, /No matching tags/);
-  search.change?.('');
 
   plugin.settings = { ...plugin.settings, poolMode: 'minimum', minimumUses: 100, provider: 'openrouter' };
   secret = 'updated-key';
@@ -62,10 +57,6 @@ test('review reveals ranked results after analysis and enables Add only for a se
   const add = content.all('button').find(button => button.textContent === 'Add tags');
   assert.ok(analyze && add);
   assert.equal(add.disabled, true);
-  const details = content.all('details')[0]!;
-  assert.doesNotMatch(details.textContent, /#excluded/, 'the preview lists only tags to score');
-  details.all?.('input')[0]?.change?.('excluded');
-  assert.match(details.textContent, /#excluded 2 usesExcluded/);
   await analyze.click?.();
   assert.match(content.textContent, /None reached 75%/);
   assert.equal(add.disabled, true);
@@ -177,19 +168,51 @@ test('review keeps a checked low score visible after higher ranked results excee
 test('review lists reveal more rows on request instead of stopping at the first page', async () => {
   const counts = Object.fromEntries(Array.from({ length: 150 }, (_, index) => [`#tag${String(index).padStart(3, '0')}`, 150 - index]));
   const app = { metadataCache: { getTags: () => counts }, secretStorage: { getSecret: () => 'test-key' } };
+  const transport: Transport = async request => ({ status: 200, json: { answers: Object.fromEntries(
+    Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.5 }])) } });
   const plugin = { settings: { ...DEFAULTS, poolMode: 'all', typeSafeSecretId: 'saved-key' } as Config,
-    transport: (async () => ({ status: 200, json: {} })) as Transport, beginRun: () => true, endRun: () => {} };
+    transport, beginRun: () => true, endRun: () => {} };
   const modal = new ReviewModal(app as never, plugin as never,
     { path: 'note.md', basename: 'note' } as never,
     { title: 'Note', body: 'Body', existingTags: [] }, 'Body');
   modal.open();
   const content = modal.contentEl as unknown as { all(tag: string): TestControl[] };
-  const details = content.all('details')[0]!;
-  const rows = () => details.all?.('div').filter(element => element.className === 'tag-match-row') ?? [];
-  assert.equal(rows().length, 100);
-  const more = details.all?.('button').find(button => button.textContent.startsWith('Show 50 more'));
+  await content.all('button').find(button => button.textContent === 'Analyze note')?.click?.();
+  const results = content.all('div').find(element => element.className === 'tag-match-results-area');
+  assert.ok(results);
+  assert.equal(results.all?.('label').length, 100);
+  const more = results.all?.('button').find(button => button.textContent.startsWith('Show 50 more'));
   assert.ok(more);
   await more.click?.();
-  assert.equal(rows().length, 150);
-  assert.equal(details.all?.('button').some(button => button.textContent.startsWith('Show ')), false);
+  assert.equal(results.all?.('label').length, 150);
+  assert.equal(results.all?.('button').some(button => button.textContent.startsWith('Show ')), false);
+});
+
+test('review adjustments change this analysis without changing saved settings', async () => {
+  const counts = Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`#tag${String(index).padStart(2, '0')}`, 40 - index]));
+  const app = { metadataCache: { getTags: () => counts }, secretStorage: { getSecret: () => 'test-key' } };
+  const sent: string[] = [];
+  const transport: Transport = async request => {
+    sent.push(...Object.keys(request.questions));
+    return { status: 200, json: { answers: Object.fromEntries(Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.5 }])) } };
+  };
+  const plugin = { settings: { ...DEFAULTS, poolMode: 'count', poolCount: 10, typeSafeSecretId: 'saved-key' } as Config,
+    transport, beginRun: () => true, endRun: () => {} };
+  const modal = new ReviewModal(app as never, plugin as never,
+    { path: 'note.md', basename: 'note' } as never,
+    { title: 'Note', body: 'Body', existingTags: [] }, 'Body');
+  modal.open();
+  const content = modal.contentEl as unknown as { textContent: string; all(tag: string): TestControl[] };
+  assert.match(content.textContent, /10 tags to score of 40 available/);
+  const mode = content.all('select')[0];
+  assert.ok(mode);
+  mode.change?.('percent');
+  assert.match(content.textContent, /8 tags to score of 40 available/);
+  mode.change?.('all');
+  assert.match(content.textContent, /40 tags to score of 40 available/);
+  assert.match(content.textContent, /Every available tag/);
+  await content.all('button').find(button => button.textContent === 'Analyze note')?.click?.();
+  assert.equal(sent.length, 40);
+  assert.equal(plugin.settings.poolMode, 'count');
+  assert.equal(plugin.settings.poolCount, 10);
 });
