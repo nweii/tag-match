@@ -78,11 +78,7 @@ ${tagList}
 export class TagMatchSettingsTab extends PluginSettingTab {
   private plugin: TagMatchPlugin;
   private selectionDisplays: { element: HTMLElement; kind: SelectionDisplayKind }[] = [];
-  constructor(app: App, plugin: TagMatchPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-    this.containerEl.addClass('tag-match-settings');
-  }
+  constructor(app: App, plugin: TagMatchPlugin) { super(app, plugin); this.plugin = plugin; }
 
   getControlValue(key: string): unknown { return this.plugin.settings[key as SettingKey]; }
 
@@ -357,6 +353,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           setting.descEl.appendText('.');
         } },
         { name: 'Feedback', render: setting => {
+          setting.setClass('tag-match-setting-centered');
           setting.addButton(button => button.setButtonText('Report issue').onClick(() => {
             activeWindow.open('https://github.com/nweii/tag-match/issues');
           }));

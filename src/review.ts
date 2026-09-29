@@ -126,7 +126,7 @@ export class ReviewModal extends Modal {
       this.refreshSelection();
     };
     const mode = this.config.poolMode;
-    new Setting(container).setName('Selection method').addDropdown(dropdown => dropdown.addOptions({
+    new Setting(container).setName('Selection method').setClass('tag-match-setting-centered').addDropdown(dropdown => dropdown.addOptions({
       auto: 'Default', all: 'All tags', percent: 'Percentage', count: 'Number',
       ...(this.plugin.settings.poolMode === 'minimum' ? { minimum: 'Tags used at least X times' } : {}),
     }).setValue(mode).onChange(value => update({ poolMode: value as Config['poolMode'] }, true)));
@@ -135,7 +135,7 @@ export class ReviewModal extends Modal {
         .setLimits(1, 100, 1).setValue(this.config.poolPercent).setDisplayFormat(value => `${value}%`)
         .onChange(value => update({ poolPercent: value })));
     }
-    const whole = (key: 'poolCount' | 'minimumUses', name: string) => new Setting(container).setName(name).addText(text => {
+    const whole = (key: 'poolCount' | 'minimumUses', name: string) => new Setting(container).setName(name).setClass('tag-match-setting-centered').addText(text => {
       text.inputEl.type = 'number';
       text.inputEl.min = '1';
       text.setValue(String(this.config[key])).onChange(value => {
