@@ -9,9 +9,9 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 ## Features
 
 - **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
-- **Fast, low-cost matching.** Jev evaluates tags in batches and gives each a match probability. Several tags can qualify for one note without generating a long-form response.
+- **Fast, low-cost matching.** Decision models like Jev make focused decisions rather than generating prose like a general-purpose LLM. Tag Match uses those per-tag judgments to consider more of your vocabulary quickly and cheaply, while taking the note and your tagging guidance into account.
 - **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
-- **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI supports review, direct application, and other decision tasks.
+- **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI lets agents review matches or add them directly.
 
 ![Tag selection settings showing a 500-tag shortlist split between most-used and sampled tags, with exclusions.](./assets/screenshots/tag-selection.png)
 
@@ -39,13 +39,13 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 
 **Tags to consider** sets the size of the candidate pool. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
 
-When the pool is limited, **Selection mix** divides it between your most-used tags and a sample of the rest. You can change that balance. The sample varies between notes, giving newer and forgotten tags a chance without checking your entire vocabulary every time.
+When the pool is limited, **Selection mix** divides it between your most-used tags and a sample of the rest. You can change that balance. The sample varies between notes, giving newer and forgotten tags a chance without checking your entire vocabulary every time. After a review, **Score more tags** draws another random sample of the same size from tags that haven't been scored yet.
 
 ### Suggestions and tagging context
 
-Tag Match chooses candidate tags locally, then Jev judges each one against the note. Each tag gets its own probability, so several can match the same note.
+Tag Match chooses candidate tags locally, then asks the decision model to estimate the probability that each tag belongs on the note. It considers the note's title, description, sampled body, existing tags, and your general guidance alongside each candidate tag, its definition if you provided one, and criteria for a meaningful match. Because tags are evaluated independently, several can qualify for the same note.
 
-**Minimum match score** and **Maximum tags to add** control which matches are preselected for review or added directly. Raise the score or lower the limit for a more selective result. You can change the selection in review mode before adding tags.
+Tag Match ranks those probabilities. **Minimum match score** sets how strong a match must be, while **Maximum tags to add** limits how many are preselected for review or added directly. You can change the selection in review mode before adding tags.
 
 Use short rules for general guidance, such as “Tag substantial topics; skip passing mentions.” Give individual tags a definition when your use differs from their ordinary meaning:
 
@@ -61,11 +61,11 @@ Long notes are sampled from the beginning, middle, and end within your text limi
 
 Agents can use Tag Match through a companion Node CLI. It shares the plugin's saved provider, model, tagging preferences, and Obsidian Secret reference. The CLI reads the Secret while that vault is open in Obsidian; an environment variable can supply the key when Obsidian is closed.
 
-On desktop, choose **Copy install command** in Tag Match settings and run it in a terminal. It installs the optional CLI and agent guide beside the plugin without copying credentials. Reload Tag Match afterward. Obsidian updates the plugin separately; settings offers an optional CLI update when a newer version is available.
+On desktop, choose **Copy install command** in Tag Match settings and run it in a terminal. It installs the optional CLI and agent guide beside the plugin without copying credentials. Choose **Check CLI status** in settings afterward. Obsidian updates the plugin separately; Tag Match checks whether the installed CLI build matches the companion build for this plugin and offers an optional update when they differ.
 
 Use **Copy agent instruction** in Tag Match settings to point an agent to the installed guide. The CLI's `--help` documents its commands and inputs. See the [agent guide](./docs/agent-cli.md) for review and direct-apply workflows, and for obtaining the vault's tag inventory.
 
-An agent can combine `preview`, `suggest`, `review`, and `apply`, or use `quick-apply` for direct application. `evaluate` exposes general decision questions. The CLI can run without Obsidian when the caller supplies the tag inventory and existing tags.
+An agent can combine `preview`, `suggest`, `review`, and `apply`, or use `quick-apply` for direct application. The CLI can run without Obsidian when the caller supplies the tag inventory and existing tags.
 
 ## Privacy and network access
 

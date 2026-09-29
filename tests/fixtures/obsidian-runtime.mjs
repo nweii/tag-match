@@ -15,17 +15,20 @@ export class TestElement {
   createDiv(cls = '') { return this.createEl('div', typeof cls === 'string' ? { cls } : cls); }
   createSpan(options = {}) { return this.createEl('span', typeof options === 'string' ? { cls: options } : options); }
   setAttr(name, value) { this[name] = value; }
+  setAttribute(name, value) { this[name] = value; }
   addClass(value) { this.className += `${this.className ? ' ' : ''}${value}`; }
   setText(value) { this.text = value; this.children = []; }
   appendText(value) { this.children.push(new TestElement('#text', { text: value })); }
   addEventListener(name, handler) { this[name] = handler; }
+  focus() {}
+  get parentElement() { return this.parent ?? null; }
   empty() { this.children = []; }
   all(tag) { return this.children.flatMap(child => [...(child.tagName === tag.toUpperCase() ? [child] : []), ...(typeof child.all === 'function' ? child.all(tag) : [])]); }
   querySelectorAll(selector) {
     const className = selector.startsWith('.') ? selector.slice(1) : '';
     return this.children.flatMap(child => [
-      ...(className && child.className.split(' ').includes(className) ? [child] : []),
-      ...child.querySelectorAll(selector),
+      ...(className && (child.className ?? '').split(' ').includes(className) ? [child] : []),
+      ...(typeof child.querySelectorAll === 'function' ? child.querySelectorAll(selector) : []),
     ]);
   }
   get textContent() { return this.text + this.children.map(child => child.textContent).join(''); }
@@ -33,7 +36,20 @@ export class TestElement {
 
 export class FileSystemAdapter { constructor(path = '') { this.path = path; } getBasePath() { return this.path; } }
 export const Platform = { isDesktop: true, isWin: false };
-export class Modal { constructor(app) { this.app = app; this.contentEl = new TestElement(); } open() { this.onOpen(); } close() { this.onClose(); } }
+export class Modal { constructor(app) { this.app = app; this.titleEl = new TestElement(); this.contentEl = new TestElement(); } setTitle(title) { this.titleEl.setText(title); return this; } open() { this.onOpen(); } close() { this.onClose(); } }
+export class ButtonComponent {
+  constructor(container) { this.buttonEl = container.createEl('button'); }
+  setButtonText(text) { this.buttonEl.text = text; return this; }
+  setCta() { return this; }
+  setTooltip(text) { this.buttonEl.title = text; return this; }
+  setDisabled(value) { this.buttonEl.disabled = value; return this; }
+  onClick(handler) { this.buttonEl.click = handler; return this; }
+}
+export class SearchComponent {
+  constructor(container) { this.inputEl = container.createEl('input'); }
+  setPlaceholder(text) { this.inputEl.placeholder = text; return this; }
+  onChange(handler) { this.inputEl.change = handler; return this; }
+}
 export class Notice { constructor(message) { this.message = message; } }
 export class SecretComponent {
   constructor(_app, container) { this.element = container.createEl('select'); }

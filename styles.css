@@ -1,13 +1,45 @@
-/* Keeps native Obsidian settings and review lists readable at narrow window widths. */
-.tag-match-review { max-width: 760px; }
-.tag-match-list { max-height: 45vh; overflow-y: auto; border-block: 1px solid var(--background-modifier-border); }
-.tag-match-candidate { padding: var(--size-4-1) var(--size-4-2); overflow-wrap: anywhere; }
-.tag-match-review .setting-item-name { overflow-wrap: anywhere; }
-.tag-match-review .setting-item-control { flex-shrink: 0; }
-.tag-match-result { display: flex; gap: var(--size-4-3); align-items: flex-start; padding: var(--size-4-2); cursor: pointer; }
-.tag-match-result input { margin-top: var(--size-4-1); flex: 0 0 auto; }
-.tag-match-result-copy { min-width: 0; overflow-wrap: anywhere; }
-.tag-match-result-name { color: var(--text-normal); }
+/* Review modal: one spacing rhythm, readable text sizes, and a sticky action bar. Settings styles follow. */
+.tag-match-review { display: flex; flex-direction: column; gap: var(--size-4-4); }
+.tag-match-review [hidden] { display: none !important; }
+.tag-match-review p, .tag-match-review dl, .tag-match-review dd { margin: 0; }
+.tag-match-note-title { margin-top: calc(-1 * var(--size-4-2)); color: var(--text-muted); overflow-wrap: anywhere; }
+.tag-match-detail { color: var(--text-muted); }
+
+.tag-match-overview { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--size-4-2) var(--size-4-5); padding: var(--size-4-3) var(--size-4-4); border-radius: var(--radius-m); background: var(--background-secondary); font-size: var(--font-ui-small); line-height: var(--line-height-tight); }
+.tag-match-overview dt { color: var(--text-muted); }
+.tag-match-overview dd { color: var(--text-normal); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.tag-match-candidates summary { width: fit-content; cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-small); }
+.tag-match-candidates summary:hover { color: var(--text-normal); }
+.tag-match-candidates[open] > summary { margin-bottom: var(--size-4-3); }
+.tag-match-review .search-input-container { width: 100%; }
+
+.tag-match-results-area { display: flex; flex-direction: column; gap: var(--size-4-3); }
+.tag-match-list { max-height: min(45vh, 24rem); overflow-y: auto; padding: var(--size-4-1); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); }
+.tag-match-candidates .tag-match-list { margin-top: var(--size-4-3); }
+/* Rows keep a radius concentric with the list: list radius minus its padding. */
+.tag-match-row { display: flex; align-items: center; gap: var(--size-4-3); min-height: 2.25rem; padding: var(--size-4-1) var(--size-4-2); border-radius: var(--radius-s); }
+label.tag-match-row { cursor: pointer; }
+label.tag-match-row-unavailable { cursor: default; }
+@media (hover: hover) { label.tag-match-row:not(.tag-match-row-unavailable):hover { background: var(--background-modifier-hover); } }
+.tag-match-row input { flex: none; margin: 0; }
+.tag-match-row-name { flex: 1; min-width: 0; color: var(--text-normal); overflow-wrap: anywhere; }
+.tag-match-row-uses { color: var(--text-muted); font-size: var(--font-ui-small); font-variant-numeric: tabular-nums; }
+.tag-match-row-meta { flex: none; color: var(--text-muted); font-size: var(--font-ui-small); font-variant-numeric: tabular-nums; }
+.tag-match-row-meets .tag-match-row-meta { color: var(--text-normal); font-weight: var(--font-semibold); }
+.tag-match-row-unavailable .tag-match-row-name { color: var(--text-muted); }
+.tag-match-divider { margin: var(--size-4-2) var(--size-4-2) 0; padding: var(--size-4-2) 0 var(--size-4-1); border-top: 1px solid var(--background-modifier-border); color: var(--text-muted); font-size: var(--font-ui-small); }
+.tag-match-list-note { padding: var(--size-4-2); color: var(--text-muted); font-size: var(--font-ui-small); }
+.tag-match-more { display: flex; }
+
+.tag-match-status { font-size: var(--font-ui-small); font-variant-numeric: tabular-nums; }
+/* An empty live region stays mounted for announcements but leaves the flex flow, so it adds no gap. */
+.tag-match-status:empty { position: absolute; }
+.tag-match-footer { position: sticky; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--size-4-2); padding-top: var(--size-4-3); border-top: 1px solid var(--background-modifier-border); background: var(--modal-background, var(--background-primary)); }
+@media (max-width: 480px) {
+  .tag-match-overview { grid-template-columns: minmax(0, 1fr); row-gap: var(--size-4-1); }
+  .tag-match-overview dd:not(:last-child) { margin-bottom: var(--size-4-2); }
+}
 .tag-match-agent-instruction { flex-direction: column; align-items: stretch; }
 .tag-match-agent-instruction .setting-item-control { width: 100%; flex-wrap: wrap; align-items: center; }
 .tag-match-agent-preview { flex-basis: 100%; min-width: 0; text-align: start; font-size: var(--font-ui-smaller); }
@@ -15,6 +47,6 @@
 .tag-match-agent-preview code { display: block; margin-top: var(--size-4-2); padding: var(--size-4-2); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--background-secondary); }
 .tag-match-cli-path { display: block; margin-top: var(--size-4-2); font-size: var(--font-ui-smaller); overflow-wrap: anywhere; user-select: text; }
 .tag-match-guidance-preview code { max-height: 16rem; overflow: auto; }
-.tag-match-selection-mix { display: flex; flex-wrap: wrap; align-items: center; gap: var(--size-4-2); }
-.tag-match-selection-mix span { font-size: var(--font-ui-smaller); }
-.tag-match-selection-mix input[type='range'] { flex: 1 1 8rem; min-width: 8rem; }
+.tag-match-selection-balance { display: flex; flex-wrap: wrap; align-items: center; gap: var(--size-4-2); }
+.tag-match-selection-balance span { font-size: var(--font-ui-smaller); }
+.tag-match-selection-balance input[type='range'] { flex: 1 1 8rem; min-width: 8rem; }

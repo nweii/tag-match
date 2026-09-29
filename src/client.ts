@@ -2,7 +2,7 @@
 import { type Config, record } from './config.ts';
 import { resolveProvider, TYPE_SAFE_ENDPOINT, type ProviderConfig } from './provider.ts';
 import { type EvaluationRequest, type Judgment, type Note, type TagCount,
-  selectCandidates, buildBatches, parseJudgments, recommendations, rankJudgments, noteSeed } from './core.ts';
+  selectCandidates, buildBatches, parseJudgments, recommendations, rankJudgments, noteSeed, type CandidatePool } from './core.ts';
 
 export const ENDPOINT = TYPE_SAFE_ENDPOINT;
 export interface HttpResponse { status: number; json: unknown; retryAfter?: string }
@@ -60,9 +60,10 @@ export class BatchEvaluationError extends Error {
 }
 
 export async function suggest(note: Note, inventory: TagCount[], config: Config, transport: Transport,
-  signal = new AbortController().signal, onProgress: (progress: Progress) => void = () => {}) {
+  signal = new AbortController().signal, onProgress: (progress: Progress) => void = () => {},
+  selectedPool?: CandidatePool) {
   const analysisConfig = { ...config };
-  const pool = selectCandidates(inventory, note.existingTags, analysisConfig, noteSeed(note));
+  const pool = selectedPool ?? selectCandidates(inventory, note.existingTags, analysisConfig, noteSeed(note));
   const prepared = buildBatches(note, pool, analysisConfig);
   const provider = resolveProvider(analysisConfig);
   const judgments: Judgment[] = [];
