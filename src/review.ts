@@ -2,19 +2,20 @@
 import { type App, ButtonComponent, Modal, Notice, SearchComponent, type TFile } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
 import { type Config } from './config.ts';
-import { type CandidateInspection, type CandidatePool, type Note, type TagCount, selectCandidates, buildBatches, noteSeed, rankJudgments, recommendations, tagKey } from './core.ts';
+import { type CandidatePool, type Note, type TagCount, selectCandidates, buildBatches, noteSeed, rankJudgments, recommendations, tagKey } from './core.ts';
 import { suggest, type SuggestionResult } from './client.ts';
 import { inventory, applySuggestions } from './vault.ts';
 import { resolveProvider } from './provider.ts';
 import { hydrateCredentials } from './secret-storage.ts';
-
-const VISIBLE_ROWS = 100;
+import { PAGE_SIZE, inspectionLabel, listEnd, renderInspectionRows } from './tag-list.ts';
 
 export class ReviewModal extends Modal {
   private controller = new AbortController();
   private result: SuggestionResult | null = null;
   private selected = new Set<string>();
   private query = '';
+  private candidateLimit = PAGE_SIZE;
+  private resultsLimit = PAGE_SIZE;
   private rows!: HTMLElement;
   private status!: HTMLElement;
   private addButton!: ButtonComponent;
@@ -58,29 +59,25 @@ export class ReviewModal extends Modal {
     // Later samples match the first sample's random share, or the whole pool when it had none.
     this.sampleSize = pool.discovery || pool.tags.length;
 
-    const overview = contentEl.createEl('dl', { cls: 'tag-match-overview' });
-    const fact = (term: string, value: string, detail = '') => {
-      overview.createEl('dt', { text: term });
-      const description = overview.createEl('dd', { text: value });
-      if (detail) description.createSpan({ cls: 'tag-match-detail', text: ` · ${detail}` });
-    };
-    const mixed = ['auto', 'percent', 'count'].includes(this.config.poolMode);
-    fact('Tags', `${pool.tags.length.toLocaleString()} of ${pool.eligible.toLocaleString()}`,
-      mixed ? `${pool.frequent.toLocaleString()} most-used, ${pool.discovery.toLocaleString()} sampled` : '');
-    const skipped = [pool.existing ? `${pool.existing.toLocaleString()} already on this note` : '',
-      pool.excluded ? `${pool.excluded.toLocaleString()} excluded` : ''].filter(Boolean);
-    if (skipped.length) fact('Skipped', skipped.join(', '));
-    fact('Preselects', `Up to ${tagCount(this.config.maxTagsToAdd)} scoring ${percent(this.config.minProbability)} or higher`);
-    fact('Sends', `Title, description, tags, guidance, and ${prepared.truncated ? 'excerpts of the body' : 'the full body'}`,
-      `${prepared.sentChars.toLocaleString()} characters`);
-    fact('Model', `${provider.model} via ${provider.label}`, `${prepared.batches.length} ${prepared.batches.length === 1 ? 'request' : 'requests'}`);
+    const overview = contentEl.createDiv('tag-match-overview');
+    const headline = overview.createEl('p', { cls: 'tag-match-overview-headline' });
+    headline.createSpan({ cls: 'tag-match-overview-count', text: pool.tags.length.toLocaleString() });
+    headline.appendText(` ${pool.tags.length === 1 ? 'tag' : 'tags'} to score`);
+    headline.createSpan({ cls: 'tag-match-detail', text: ` of ${pool.eligible.toLocaleString()} available` });
+    overview.createEl('p', { cls: 'tag-match-overview-mix', text: this.config.poolMode === 'all' ? 'Every available tag'
+      : this.config.poolMode === 'minimum' ? `Tags used at least ${this.config.minimumUses.toLocaleString()} times`
+        : !pool.discovery ? 'Your most-used tags'
+          : !pool.frequent ? 'Sampled at random from across your vault'
+            : `${pool.frequent.toLocaleString()} most-used and ${pool.discovery.toLocaleString()} sampled at random` });
+    const sends = overview.createEl('p', { cls: 'tag-match-overview-sends', text: `Sends the title, description, tags, guidance, and ${prepared.truncated ? 'excerpts of the note' : 'full note'} (${prepared.sentChars.toLocaleString()} characters) to ` });
+    sends.createSpan({ cls: 'tag-match-nowrap', text: provider.model });
+    sends.appendText(` via ${provider.label} in ${prepared.batches.length} ${prepared.batches.length === 1 ? 'request' : 'requests'}.`);
 
     const candidateDetails = contentEl.createEl('details', { cls: 'tag-match-candidates' });
-    const summary = candidateDetails.createEl('summary', { text: 'Browse all vault tags' });
-    summary.createSpan({ cls: 'tag-match-detail', text: ` ${pool.inspected.length.toLocaleString()}` });
-    const candidateSearch = new SearchComponent(candidateDetails).setPlaceholder('Search vault tags')
-      .onChange(value => { this.query = value.toLowerCase(); this.renderCandidates(pool, candidateRows); });
-    candidateSearch.inputEl.setAttribute('aria-label', 'Search vault tags');
+    candidateDetails.createEl('summary', { text: 'Show tags to score' });
+    const candidateSearch = new SearchComponent(candidateDetails).setPlaceholder('Search all vault tags')
+      .onChange(value => { this.query = value.toLowerCase(); this.candidateLimit = PAGE_SIZE; this.renderCandidates(pool, candidateRows); });
+    candidateSearch.inputEl.setAttribute('aria-label', 'Search all vault tags');
     const candidateRows = candidateDetails.createDiv('tag-match-list');
     this.renderCandidates(pool, candidateRows);
 
@@ -93,7 +90,7 @@ export class ReviewModal extends Modal {
     const resultsArea = contentEl.createDiv('tag-match-results-area');
     resultsArea.hidden = true;
     const resultsSearch = new SearchComponent(resultsArea).setPlaceholder('Search all tags')
-      .onChange(value => { this.query = value.toLowerCase(); this.renderResults(); });
+      .onChange(value => { this.query = value.toLowerCase(); this.resultsLimit = PAGE_SIZE; this.renderResults(); });
     resultsSearch.inputEl.setAttribute('aria-label', 'Search all tags, including unscored ones');
     this.resultsSearch = resultsSearch.inputEl;
     this.rows = resultsArea.createDiv('tag-match-list');
@@ -121,6 +118,7 @@ export class ReviewModal extends Modal {
           this.controller.signal, progress => { this.status.setText(`Scored ${progress.complete.toLocaleString()} of ${tagCount(progress.total)}…`); }, pool);
         this.selected = new Set(this.result.recommended.map(item => item.tag));
         this.query = '';
+        this.resultsLimit = PAGE_SIZE;
         const recommended = this.result.recommended.length;
         const minimum = percent(this.config.minProbability);
         this.status.setText(`Scored ${tagCount(this.result.judgments.length)}. ${recommended
@@ -199,15 +197,18 @@ export class ReviewModal extends Modal {
   }
 
   private renderCandidates(pool: CandidatePool, rows: HTMLElement) {
-    rows.empty();
-    const matching = pool.inspected.filter(item => item.tag.toLowerCase().includes(this.query));
-    for (const item of matching.slice(0, VISIBLE_ROWS)) {
-      const row = rows.createDiv({ cls: item.status === 'included' ? 'tag-match-row' : 'tag-match-row tag-match-row-unavailable' });
-      const name = row.createSpan({ cls: 'tag-match-row-name', text: `#${item.tag}` });
-      name.createSpan({ cls: 'tag-match-row-uses', text: ` ${useCount(item.count)}` });
-      row.createSpan({ cls: 'tag-match-row-meta', text: inspectionLabel(item, false) });
+    if (this.query) {
+      renderInspectionRows(rows, pool.inspected.filter(item => item.tag.toLowerCase().includes(this.query)), this.candidateLimit,
+        () => { this.candidateLimit += PAGE_SIZE; this.renderCandidates(pool, rows); });
+      return;
     }
-    listFooter(rows, matching.length);
+    // Without a query the list previews the selection, sampled tags first because they are the part that varies by note.
+    const included = pool.inspected.filter(item => item.status === 'included');
+    const sampled = included.filter(item => item.reason === 'discovery');
+    const ordered = [...sampled, ...included.filter(item => item.reason !== 'discovery')];
+    renderInspectionRows(rows, ordered, this.candidateLimit, () => { this.candidateLimit += PAGE_SIZE; this.renderCandidates(pool, rows); },
+      sampled.length ? item => item.reason === 'discovery' ? `Sampled for this note (${sampled.length.toLocaleString()})`
+        : `Most-used (${(included.length - sampled.length).toLocaleString()})` : undefined);
   }
 
   private renderResults() {
@@ -222,7 +223,7 @@ export class ReviewModal extends Modal {
       .sort((a, b) => (rank.get(a.tag) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.tag) ?? Number.MAX_SAFE_INTEGER)
         || b.count - a.count || a.tag.localeCompare(b.tag));
     // Checked tags stay reachable even when they rank past the display limit.
-    const visible = matching.filter((item, index) => index < VISIBLE_ROWS || this.selected.has(item.tag));
+    const visible = matching.filter((item, index) => index < this.resultsLimit || this.selected.has(item.tag));
     const threshold = this.config.minProbability;
     const meets = (tag: string) => (scores.get(tag) ?? -1) >= threshold;
     let divided = !visible.some(item => meets(item.tag));
@@ -250,7 +251,7 @@ export class ReviewModal extends Modal {
         this.updateSelection();
       });
     }
-    listFooter(this.rows, matching.length, visible.length);
+    listEnd(this.rows, matching.length, visible.length, () => { this.resultsLimit += PAGE_SIZE; this.renderResults(); });
   }
 
   private updateSelection() {
@@ -290,11 +291,6 @@ export class ReviewModal extends Modal {
   }
 }
 
-function listFooter(rows: HTMLElement, total: number, shown = Math.min(total, VISIBLE_ROWS)) {
-  if (!total) rows.createDiv({ cls: 'tag-match-list-note', text: 'No matching tags.' });
-  else if (total > shown) rows.createDiv({ cls: 'tag-match-list-note', text: `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}. Search to find more.` });
-}
-
 // Rounds down so a score just under the minimum never displays as the minimum itself.
 function percent(probability: number): string {
   return `${Math.floor(probability * 100 + 1e-9)}%`;
@@ -306,18 +302,4 @@ function tagCount(count: number): string {
 
 function moreTags(count: number): string {
   return `${count.toLocaleString()} more ${count === 1 ? 'tag' : 'tags'}`;
-}
-
-function useCount(count: number): string {
-  return `${count.toLocaleString()} ${count === 1 ? 'use' : 'uses'}`;
-}
-
-function inspectionLabel(item: CandidateInspection, scored: boolean): string {
-  if (item.status === 'excluded') return 'Excluded';
-  if (item.status === 'already-present') return 'On this note';
-  if (scored) return 'Not scored';
-  if (item.status === 'outside-pool') return 'Not selected';
-  if (item.reason === 'discovery') return 'Sampled';
-  if (item.reason === 'frequent') return 'Most-used';
-  return 'Selected';
 }

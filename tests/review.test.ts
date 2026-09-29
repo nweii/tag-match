@@ -25,10 +25,10 @@ test('review keeps its previewed selection while refreshing the captured secret'
     { title: 'Note', body: 'Design work', existingTags: [] }, 'Design work');
   modal.open();
   const content = modal.contentEl as unknown as { textContent: string; all(tag: string): TestControl[] };
-  assert.match(content.textContent, /Tags1 of 1/);
+  assert.match(content.textContent, /1 tag to score of 1 available/);
 
   counts = { '#design': 3, '#writing': 2 };
-  const search = content.all('input').find(input => input.placeholder === 'Search vault tags');
+  const search = content.all('input').find(input => input.placeholder === 'Search all vault tags');
   assert.ok(search);
   search.change?.('writing');
   assert.match(content.all('details')[0]!.textContent, /No matching tags/);
@@ -62,7 +62,10 @@ test('review reveals ranked results after analysis and enables Add only for a se
   const add = content.all('button').find(button => button.textContent === 'Add tags');
   assert.ok(analyze && add);
   assert.equal(add.disabled, true);
-  assert.match(content.all('details')[0]!.textContent, /excluded/);
+  const details = content.all('details')[0]!;
+  assert.doesNotMatch(details.textContent, /#excluded/, 'the preview lists only tags to score');
+  details.all?.('input')[0]?.change?.('excluded');
+  assert.match(details.textContent, /#excluded 2 usesExcluded/);
   await analyze.click?.();
   assert.match(content.textContent, /None reached 75%/);
   assert.equal(add.disabled, true);
@@ -169,4 +172,24 @@ test('review keeps a checked low score visible after higher ranked results excee
   const search = results.all?.('input').find(input => input.placeholder === 'Search all tags');
   search?.change?.('tag199');
   assert.deepEqual(results.all?.('label').map(label => label.textContent.match(/#tag\d{3}/)?.[0]), ['#tag199']);
+});
+
+test('review lists reveal more rows on request instead of stopping at the first page', async () => {
+  const counts = Object.fromEntries(Array.from({ length: 150 }, (_, index) => [`#tag${String(index).padStart(3, '0')}`, 150 - index]));
+  const app = { metadataCache: { getTags: () => counts }, secretStorage: { getSecret: () => 'test-key' } };
+  const plugin = { settings: { ...DEFAULTS, poolMode: 'all', typeSafeSecretId: 'saved-key' } as Config,
+    transport: (async () => ({ status: 200, json: {} })) as Transport, beginRun: () => true, endRun: () => {} };
+  const modal = new ReviewModal(app as never, plugin as never,
+    { path: 'note.md', basename: 'note' } as never,
+    { title: 'Note', body: 'Body', existingTags: [] }, 'Body');
+  modal.open();
+  const content = modal.contentEl as unknown as { all(tag: string): TestControl[] };
+  const details = content.all('details')[0]!;
+  const rows = () => details.all?.('div').filter(element => element.className === 'tag-match-row') ?? [];
+  assert.equal(rows().length, 100);
+  const more = details.all?.('button').find(button => button.textContent.startsWith('Show 50 more'));
+  assert.ok(more);
+  await more.click?.();
+  assert.equal(rows().length, 150);
+  assert.equal(details.all?.('button').some(button => button.textContent.startsWith('Show ')), false);
 });

@@ -1,39 +1,31 @@
 // Defines searchable native Obsidian settings for candidate coverage and tagging conventions.
-import { type App, FileSystemAdapter, Modal, Notice, Platform, PluginSettingTab, SecretComponent, Setting, SliderComponent, type SettingDefinitionItem } from 'obsidian';
+import { type App, FileSystemAdapter, Modal, Notice, Platform, PluginSettingTab, SearchComponent, SecretComponent, SliderComponent, type SettingDefinitionItem } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
 import { type Config, normalizeConfig } from './config.ts';
 import { selectCandidates, parseDefinitions, normalizeTag, type CandidatePool, type TagCount } from './core.ts';
 import { inventory } from './vault.ts';
 import { resolveProvider } from './provider.ts';
-import { buildAgentInstruction, compareVersions, resolveAgentSetup } from './agent-instruction.ts';
+import { type AgentCliStatus, buildAgentInstruction, compareVersions, resolveAgentSetup } from './agent-instruction.ts';
 import { hydrateCredentials } from './secret-storage.ts';
+import { PAGE_SIZE, renderInspectionRows } from './tag-list.ts';
 
 class VocabularyModal extends Modal {
   private plugin: TagMatchPlugin;
   constructor(app: App, plugin: TagMatchPlugin) { super(app); this.plugin = plugin; }
   onOpen() {
-    this.contentEl.createEl('h2', { text: 'Vault tags' });
-    this.contentEl.createEl('p', { cls: 'setting-item-description',
-      text: 'Example selection. Sampled tags vary by note; review a note to see its actual selection.' });
+    this.setTitle('Vault tags');
+    this.contentEl.addClass('tag-match-review');
     const pool = selectCandidates(inventory(this.app), [], this.plugin.settings);
+    this.contentEl.createEl('p', { cls: 'tag-match-note-title',
+      text: `${pool.tags.length.toLocaleString()} of ${pool.total.toLocaleString()} tags would be scored with your current settings. Sampled tags change from note to note.` });
     let query = '';
+    let limit = PAGE_SIZE;
+    const search = new SearchComponent(this.contentEl).setPlaceholder('Search vault tags')
+      .onChange(value => { query = value.toLowerCase(); limit = PAGE_SIZE; draw(); });
+    search.inputEl.setAttribute('aria-label', 'Search vault tags');
     const rows = this.contentEl.createDiv('tag-match-list');
-    const draw = () => {
-      rows.empty();
-      const tags = pool.inspected.filter(item => item.tag.toLowerCase().includes(query));
-      rows.createEl('p', { text: `${tags.length.toLocaleString()} tags${tags.length > 200 ? ' · showing the first 200; search to narrow' : ''}` });
-      for (const item of tags.slice(0, 200)) {
-        const reason = item.status === 'excluded' ? 'excluded'
-          : item.status === 'outside-pool' ? 'outside this selection'
-          : item.reason === 'discovery' ? 'selected by sampling'
-          : item.reason === 'frequent' ? 'selected by usage'
-          : item.reason === 'minimum' ? 'meets minimum uses' : 'included';
-        rows.createDiv({ cls: 'tag-match-candidate', text: `#${item.tag} · ${item.count} uses · ${reason}` });
-      }
-    };
-    new Setting(this.contentEl).setName('Search tags').addSearch(search => search.onChange(value => {
-      query = value.toLowerCase(); draw();
-    }));
+    const draw = () => renderInspectionRows(rows, pool.inspected.filter(item => item.tag.toLowerCase().includes(query)), limit,
+      () => { limit += PAGE_SIZE; draw(); });
     draw();
   }
   onClose() { this.contentEl.empty(); }
@@ -42,6 +34,14 @@ class VocabularyModal extends Modal {
 type SettingKey = keyof Config;
 type SelectionDisplayKind = 'default' | 'percentage' | 'number' | 'mix' | 'mix-left' | 'mix-right' | 'summary';
 const selectionDisplayClass = (kind: SelectionDisplayKind) => `tag-match-selection-${kind}`;
+
+function cliStatusNotice(status: AgentCliStatus): string {
+  if (status.kind === 'missing') return 'Tag Match CLI not found in the plugin folder.';
+  if (status.kind === 'current') return 'Tag Match CLI is up to date.';
+  if (status.kind === 'newer') return 'The installed CLI is newer than this plugin.';
+  if (status.kind === 'different') return 'A CLI update is available.';
+  return 'Tag Match can’t tell whether the CLI matches this plugin.';
+}
 
 export function buildTaggingContextPrompt(config: Config, tags: TagCount[]): string {
   const sortedTags = [...tags].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
@@ -232,10 +232,16 @@ export class TagMatchSettingsTab extends PluginSettingTab {
             if (!agentSetup) return;
             setting.settingEl.addClass('tag-match-agent-instruction');
             setting.addButton(button => button.setButtonText('Check CLI status').onClick(async () => {
+              button.setDisabled(true).setButtonText('Checking…');
               try {
                 await this.plugin.refreshAgentCliStatus();
+                // The settings re-render in place, so a notice confirms the check ran even when nothing changed.
+                new Notice(cliStatusNotice(this.plugin.agentCliStatus));
                 this.update();
-              } catch { new Notice('Could not check CLI status.'); }
+              } catch {
+                new Notice('Could not check CLI status.');
+                button.setDisabled(false).setButtonText('Check CLI status');
+              }
             }));
             if (agentInstruction) setting.addButton(button => button.setButtonText('Copy agent instruction').onClick(async () => {
               try { await activeWindow.navigator.clipboard.writeText(agentInstruction); new Notice('Agent instruction copied.'); }
@@ -304,7 +310,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
         { name: 'Browse vault tags', desc: 'Search tags by use count and see why each tag is included or left out.',
           action: () => new VocabularyModal(this.app, this.plugin).open() },
       ] },
-      { type: 'group', heading: 'Suggestions', items: [
+      { type: 'group', heading: 'Recommended tags', items: [
         { name: 'Maximum tags to add', desc: 'Limits tags preselected for review and added by quick apply. You can manually choose more.',
           aliases: ['maximum tags to add'], control: { type: 'number', key: 'maxTagsToAdd', min: 1, max: 1000, step: 1,
             validate: value => Number.isInteger(value) && value >= 1 && value <= 1000 ? undefined : 'Enter a whole number from 1 to 1,000.' } },
