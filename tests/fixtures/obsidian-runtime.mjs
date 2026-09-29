@@ -92,6 +92,7 @@ export class Setting {
     if (container) container.children.push(this.settingEl);
   }
   setName(value) { this.settingEl.settingName = value; return this; }
+  setClass(value) { this.settingEl.addClass(value); return this; }
   setDesc(value) {
     this.description = value;
     if (Array.isArray(value?.children)) { this.descEl.text = value.text ?? ''; this.descEl.children = value.children; }
