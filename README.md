@@ -59,9 +59,7 @@ Long notes are sampled from the beginning, middle, and end within your text limi
 
 Agents can use Tag Match through a companion Node CLI. It shares the plugin's saved provider, model, tagging preferences, and Obsidian Secret reference. The CLI reads the Secret while that vault is open in Obsidian; an environment variable can supply the key when Obsidian is closed.
 
-On desktop, choose **Copy install command** in Tag Match settings and paste it into your terminal. The command fetches `install-cli.mjs` from the GitHub release matching your plugin version. The installer places the CLI and guide beside the plugin and does not copy credentials. Reload Tag Match afterward. After a plugin update, use **Copy CLI update command** to refresh the companion.
-
-You can also extract `tag-match-agent.zip` from the [matching release](https://github.com/nweii/tag-match/releases) into the plugin folder. Obsidian’s standard plugin installer does not install these optional files.
+On desktop, choose **Copy install command** in Tag Match settings and run it in a terminal. It installs the optional CLI and agent guide beside the plugin without copying credentials. Reload Tag Match afterward. Obsidian updates the plugin separately; if the CLI becomes outdated, settings offers **Copy CLI update command**.
 
 Use **Copy agent instruction** in Tag Match settings to point an agent to the installed guide. The CLI's `--help` documents its commands and inputs. See the [agent guide](./docs/agent-cli.md) for review and direct-apply workflows, and for obtaining the vault's tag inventory.
 
