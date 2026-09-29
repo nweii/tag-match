@@ -23,9 +23,9 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 
 1. [Install Tag Match from Community plugins](https://community.obsidian.md/plugins/tag-match), or open **Settings → Community plugins → Browse** in Obsidian and search for **Tag Match**. Enable it after installing.
 2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
-3. Open a Markdown note and run **Tag Match: Review tags for current note**. Select **Analyze note**, review the checked matches, then select **Add selected tags**.
+3. Open a Markdown note and run **Tag Match: Review tags for current note** to analyze and choose matches before adding them, or **Tag Match: Add recommended tags to current note** to analyze and add them directly.
 
-For direct application, run **Tag Match: Add recommended tags to current note**. It analyzes the note and adds recommendations without a review dialog. Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
+Both commands respect your exclusions and maximum additions, and refuse to apply an analysis if the note has changed.
 
 The plugin uses Obsidian APIs available on desktop and mobile. The companion CLI requires a computer with Node.js 22 or later.
 
@@ -77,12 +77,8 @@ Copy buttons write to the system clipboard only when clicked; Tag Match never re
 
 The Obsidian plugin operates within your vault. The optional CLI reads its explicit configuration path and can read or modify a Markdown file outside a vault when you supply that path. It does not search your filesystem for notes or credentials.
 
-## Development and support
+## About
 
-See [Contributing](./CONTRIBUTING.md) for setup and checks, or [report a bug](https://github.com/nweii/tag-match/issues/new/choose). For a security concern, follow [the security policy](./SECURITY.md).
+Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/). It is not affiliated with Obsidian, TypeSafe, or OpenRouter.
 
-Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/) and is not affiliated with Obsidian, TypeSafe, or OpenRouter.
-
-[Buy me a coffee](https://buymeacoffee.com/nthnwei).
-
-See [LICENSE](./LICENSE) for the source license and [third-party notices](./THIRD_PARTY_NOTICES.md) for bundled dependencies.
+[Report a bug](https://github.com/nweii/tag-match/issues/new/choose) · [Security policy](./SECURITY.md) · [Third-party notices](./THIRD_PARTY_NOTICES.md) · [Buy me a coffee](https://buymeacoffee.com/nthnwei)
