@@ -25,6 +25,22 @@ export interface TagBatch { request: EvaluationRequest; tags: string[] }
 export function normalizeTag(tag: string): string { return tag.trim().replace(/^#/, ''); }
 export function tagKey(tag: string): string { return normalizeTag(tag).toLowerCase(); }
 
+/** An explicit vocabulary may introduce tags, but never silently accepts malformed names. */
+export function parseOnlyTags(text: string): string[] {
+  const tags = new Map<string, string>();
+  for (const entry of text.split(/[\n,]/)) {
+    if (!entry.trim()) continue;
+    const tag = normalizeTag(entry);
+    if (!tag || !/^(?:[\p{L}\p{N}\p{M}_/-]|[^\u0020-\u007f\p{Z}\p{C}]|\u200d)+$/u.test(tag)
+      || /^\p{N}+$/u.test(tag)) {
+      throw new Error(`Invalid tag “${entry.trim()}”. Use tag names without spaces, one per line or separated by commas.`);
+    }
+    if (!tags.has(tagKey(tag))) tags.set(tagKey(tag), tag);
+  }
+  if (text.trim() && !tags.size) throw new Error('Enter at least one tag.');
+  return [...tags.values()];
+}
+
 export function exclusionRules(text: string): string[] {
   return text.split(/[\n,]/).map(tagKey).filter(Boolean);
 }
@@ -87,7 +103,13 @@ export function selectCandidates(inventory: TagCount[], existingTags: string[], 
     if (previous) previous.count += item.count;
     else merged.set(key, { tag, count: item.count });
   }
-  const rules = exclusionRules(config.excludedTags);
+  const explicit = config.poolMode === 'specific' ? parseOnlyTags(config.onlyTags) : [];
+  if (config.poolMode === 'specific') {
+    const counts = new Map(merged);
+    merged.clear();
+    for (const tag of explicit) merged.set(tagKey(tag), { tag, count: counts.get(tagKey(tag))?.count ?? 0 });
+  }
+  const rules = config.poolMode === 'specific' ? [] : exclusionRules(config.excludedTags);
   const existing = new Set(existingTags.map(tagKey));
   let excludedCount = 0;
   let existingCount = 0;
@@ -101,7 +123,7 @@ export function selectCandidates(inventory: TagCount[], existingTags: string[], 
   let selected: CandidateTag[];
   let frequent = 0;
   let discovery = 0;
-  if (config.poolMode === 'all') {
+  if (config.poolMode === 'specific' || config.poolMode === 'all') {
     selected = eligible.map(item => ({ ...item, reason: 'all' }));
   } else if (config.poolMode === 'minimum') {
     selected = eligible.filter(item => item.count >= config.minimumUses)
@@ -179,7 +201,7 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
     const question = {
       type: 'noul',
       instructions: {
-        question: 'Should this existing tag be added to `note`, following `tagging_guidance`? Evaluate this tag independently; several tags may apply.',
+        question: 'Should this tag be added to `note`, following `tagging_guidance`? Evaluate this tag independently; several tags may apply.',
         tag: candidate.tag,
         definition: definitions.get(tagKey(candidate.tag)) ?? 'Use the ordinary meaning of the tag.',
       },
@@ -213,14 +235,14 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
 }
 
 export function parseJudgments(response: unknown, tags: string[]): Judgment[] {
-  if (!record(response) || !record(response.answers)) throw new Error('Jev returned no answers.');
+  if (!record(response) || !record(response.answers)) throw new Error('Jev returned no answers. Try analyzing this note again.');
   const answers = response.answers;
-  if (Object.keys(answers).length !== tags.length) throw new Error('Jev returned an unexpected number of answers.');
+  if (Object.keys(answers).length !== tags.length) throw new Error('Jev returned an unexpected number of answers. Try analyzing this note again.');
   return tags.map((tag, index) => {
     const answer = answers[`tag_${index}`];
     if (!record(answer) || answer.type !== 'noul' || typeof answer.noul !== 'number'
       || !Number.isFinite(answer.noul) || answer.noul < 0 || answer.noul > 1) {
-      throw new Error(`Jev returned an invalid probability for #${tag}.`);
+      throw new Error(`Jev returned an invalid probability for #${tag}. Try analyzing this note again.`);
     }
     return { tag, probability: answer.noul };
   });

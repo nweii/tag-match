@@ -8,6 +8,8 @@ A synced `data.json` can contain a Secret name without its key on this device. F
 
 Use `review` by default for tagging. Confirm that it returned `review-ready`, inspect the proposed tags, then use `apply` with only the tags the user approved. The task is complete when apply reports `applied` or `no-op` and its path and added tags match the request. Review does not write, and apply makes no network request.
 
+`poolMode: "specific"` uses `onlyTags`, a comma- or newline-separated explicit tag set. Every listed tag is considered, including tags absent from the inventory; pool size, sampling, minimum-use settings, and `excludedTags` do not apply. An empty set scores no tags and never falls back to the vault inventory. Other modes use inventory selection and `excludedTags`. Tags already on the note are skipped in every mode. Minimum match score and maximum additions apply in every mode. These fields are shared with the plugin defaults.
+
 For default (`auto`), percentage, and number modes, `mostUsedPercent` sets the share selected by use count from 0 to 100. The remaining places sample other tags, including rarely used tags. The default is 70. `preview` returns each included tag's internal reason and an inspection list that distinguishes included, excluded, already-present, and outside-selection tags. The same note, inventory, and settings produce the same selection.
 
 Use `quick-apply` only when the user explicitly authorizes writing recommendations without review. Confirm its final status, path, and added tags. Failed, partial, cancelled, or stale analysis must not count as completion.

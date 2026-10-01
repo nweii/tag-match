@@ -1,5 +1,5 @@
 // Presents candidate coverage and selectable results before any note changes occur.
-import { type App, ButtonComponent, Modal, Notice, SearchComponent, Setting, type TFile } from 'obsidian';
+import { type App, ButtonComponent, Modal, Notice, SearchComponent, type TFile } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
 import { type Config, normalizeConfig } from './config.ts';
 import { type CandidatePool, type Note, type TagCount, selectCandidates, buildBatches, noteSeed, rankJudgments, recommendations, tagKey } from './core.ts';
@@ -8,6 +8,7 @@ import { inventory, applySuggestions } from './vault.ts';
 import { resolveProvider } from './provider.ts';
 import { hydrateCredentials } from './secret-storage.ts';
 import { PAGE_SIZE, inspectionLabel, listEnd } from './tag-list.ts';
+import { renderSelectionControls } from './selection-controls.ts';
 
 export class ReviewModal extends Modal {
   private controller = new AbortController();
@@ -34,6 +35,7 @@ export class ReviewModal extends Modal {
   private config: Config;
   private readonly tags: TagCount[];
   private running = false;
+  private selectionValid: () => boolean = () => true;
   private applying = false;
 
   constructor(app: App, plugin: TagMatchPlugin, file: TFile, note: Note, snapshot: string) {
@@ -80,12 +82,15 @@ export class ReviewModal extends Modal {
 
   /** Recomputes the candidate pool and summary from the review's current settings. */
   private refreshSelection() {
-    const pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
-    this.pool = pool;
     this.overview.empty();
     this.status.setText('');
+    let pool: CandidatePool;
     let prepared: ReturnType<typeof buildBatches>;
-    try { prepared = buildBatches(this.note, pool, this.config); }
+    try {
+      pool = selectCandidates(this.tags, this.note.existingTags, this.config, noteSeed(this.note));
+      this.pool = pool;
+      prepared = buildBatches(this.note, pool, this.config);
+    }
     catch (error) {
       this.overview.hidden = true;
       this.status.setText(error instanceof Error ? error.message : 'Could not prepare this note for analysis.');
@@ -100,7 +105,8 @@ export class ReviewModal extends Modal {
     headline.createSpan({ cls: 'tag-match-overview-count', text: pool.tags.length.toLocaleString() });
     headline.appendText(` ${pool.tags.length === 1 ? 'tag' : 'tags'} to score`);
     headline.createSpan({ cls: 'tag-match-detail', text: ` of ${pool.eligible.toLocaleString()} available` });
-    this.overview.createEl('p', { cls: 'tag-match-overview-mix', text: this.config.poolMode === 'all' ? 'Every available tag'
+    this.overview.createEl('p', { cls: 'tag-match-overview-mix', text: this.config.poolMode === 'specific' ? 'Your specified tags'
+      : this.config.poolMode === 'all' ? 'Every available tag'
       : this.config.poolMode === 'minimum' ? `Tags used at least ${this.config.minimumUses.toLocaleString()} times`
         : !pool.discovery ? 'Your most-used tags'
           : !pool.frequent ? 'Sampled at random from across your vault'
@@ -108,11 +114,12 @@ export class ReviewModal extends Modal {
     const sends = this.overview.createEl('p', { cls: 'tag-match-overview-sends', text: `Sends the title, description, tags, guidance, and ${prepared.truncated ? 'excerpts of the note' : 'full note'} (${prepared.sentChars.toLocaleString()} characters) to ` });
     sends.createSpan({ cls: 'tag-match-nowrap', text: provider.model });
     sends.appendText(` via ${provider.label} in ${prepared.batches.length} ${prepared.batches.length === 1 ? 'request' : 'requests'}.`);
-    if (!pool.tags.length) this.status.setText(pool.total === 0
+    if (!pool.tags.length) this.status.setText(this.config.poolMode === 'specific' && !this.config.onlyTags.trim()
+      ? 'Enter at least one tag in “Tags”.' : pool.total === 0
       ? 'No vault tags yet. Add a tag to a note, then try again.'
-      : pool.eligible === 0 ? 'Every vault tag is excluded or already on this note.'
+      : pool.eligible === 0 ? 'Every tag is excluded or already on this note.'
         : 'No tags meet this selection. Adjust it for this review or in Tag Match settings.');
-    this.analyzeButton.setDisabled(!pool.tags.length);
+    this.analyzeButton.setDisabled(!pool.tags.length || !this.selectionValid());
   }
 
   /** Mirrors the selection settings for this review only, so a one-off change never rewrites the defaults. */
@@ -125,38 +132,12 @@ export class ReviewModal extends Modal {
       if (rebuild) this.renderAdjustments();
       this.refreshSelection();
     };
-    const mode = this.config.poolMode;
-    new Setting(container).setName('Selection method').setClass('tag-match-setting-centered').addDropdown(dropdown => dropdown.addOptions({
-      auto: 'Default', all: 'All tags', percent: 'Percentage', count: 'Number',
-      ...(this.plugin.settings.poolMode === 'minimum' ? { minimum: 'Tags used at least X times' } : {}),
-    }).setValue(mode).onChange(value => update({ poolMode: value as Config['poolMode'] }, true)));
-    if (mode === 'percent') {
-      new Setting(container).setName('Selection size').setDesc('Share of all tags').addSlider(slider => slider
-        .setLimits(1, 100, 1).setValue(this.config.poolPercent).setDisplayFormat(value => `${value}%`)
-        .onChange(value => update({ poolPercent: value })));
-    }
-    const whole = (key: 'poolCount' | 'minimumUses', name: string) => new Setting(container).setName(name).setClass('tag-match-setting-centered').addText(text => {
-      text.inputEl.type = 'number';
-      text.inputEl.min = '1';
-      text.setValue(String(this.config[key])).onChange(value => {
-        const number = Number(value);
-        if (Number.isInteger(number) && number >= 1) update({ [key]: number });
-      });
-    });
-    if (mode === 'count') whole('poolCount', 'Selection size');
-    if (mode === 'minimum') whole('minimumUses', 'Minimum uses');
-    if (['auto', 'percent', 'count'].includes(mode)) {
-      const mixLabel = (value: number) => `Most-used ${value}% · sampled ${100 - value}%`;
-      const mix = new Setting(container).setName('Selection mix').setDesc(mixLabel(this.config.mostUsedPercent));
-      mix.addSlider(slider => slider.setLimits(0, 100, 1).setValue(this.config.mostUsedPercent).setDisplayFormat(() => '').onChange(value => {
-        mix.setDesc(mixLabel(value)); update({ mostUsedPercent: value });
-      }));
-    }
+    this.selectionValid = renderSelectionControls(container, this.config, this.plugin.settings.poolMode === 'minimum', update);
   }
 
   private async analyze(adjust: HTMLDetailsElement, resultsArea: HTMLElement) {
     const pool = this.pool;
-    if (this.running || !pool.tags.length) return;
+    if (this.running || !pool.tags.length || !this.selectionValid()) return;
     if (!this.plugin.beginRun(this.file.path, this.controller)) {
       new Notice('Tag Match is already analyzing this note.'); return;
     }
@@ -239,7 +220,7 @@ export class ReviewModal extends Modal {
     this.applying = true;
     this.addButton.setDisabled(true);
     try {
-      await applySuggestions(this.app, this.file, this.snapshot, [...this.selected], this.note.existingTags, this.plugin.settings);
+      await applySuggestions(this.app, this.file, this.snapshot, [...this.selected], this.note.existingTags, this.config);
       new Notice(`Added ${tagCount(this.selected.size)} to ${this.file.basename}.`);
       this.close();
     } catch (error) {
@@ -298,7 +279,7 @@ export class ReviewModal extends Modal {
 
   private prepareNextSample() {
     const result = this.result;
-    if (!result || ['all', 'minimum'].includes(this.config.poolMode)) {
+    if (!result || ['specific', 'all', 'minimum'].includes(this.config.poolMode)) {
       this.nextPool = null;
     } else {
       const evaluated = new Set(result.judgments.map(item => tagKey(item.tag)));

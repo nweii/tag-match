@@ -5,7 +5,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { Config } from '../../src/config.ts';
 import { record } from '../../src/config.ts';
 import { suggest, type SuggestionResult, type Transport } from '../../src/client.ts';
-import { exclusionRules, isExcluded, normalizeTag, tagKey, type Note, type TagCount } from '../../src/core.ts';
+import { exclusionRules, isExcluded, normalizeTag, tagKey, parseOnlyTags, type Note, type TagCount } from '../../src/core.ts';
 import { addTags, noteMetadata } from '../../src/document.ts';
 
 export interface ReviewPlan {
@@ -76,7 +76,11 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
   if (new Set(selected.map(tagKey)).size !== selected.length) throw new Error('Selected tags must not contain duplicates.');
   const evaluated = new Set(plan.evaluatedTags.map(tagKey));
   const existing = new Set(plan.existingTags.map(tagKey));
-  const rules = exclusionRules(config.excludedTags);
+  const rules = config.poolMode === 'specific' ? [] : exclusionRules(config.excludedTags);
+  const explicit = new Set(config.poolMode === 'specific' ? parseOnlyTags(config.onlyTags).map(tagKey) : []);
+  if (config.poolMode === 'specific' && selected.some(tag => !explicit.has(tagKey(tag)))) {
+    throw new Error('A selected tag is outside “Only these tags” in the current configuration.');
+  }
   if (selected.some(tag => !evaluated.has(tagKey(tag)))) throw new Error('Every selected tag must come from this review plan.');
   if (selected.some(tag => existing.has(tagKey(tag)))) throw new Error('A selected tag is already on the reviewed note.');
   if (selected.some(tag => isExcluded(tag, rules))) throw new Error('A selected tag is excluded by the current configuration.');

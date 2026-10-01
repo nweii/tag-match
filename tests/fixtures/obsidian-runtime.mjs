@@ -6,6 +6,9 @@ export class TestElement {
     this.className = options.cls ?? '';
     this.children = [];
     this.open = false;
+    this.scrollTop = 0;
+    this.style = { setProperty: () => {} };
+    Object.assign(this, options.attr ?? {});
   }
   createEl(tag, options = {}) {
     const child = new TestElement(tag, options); child.parent = this; this.children.push(child);
@@ -17,6 +20,11 @@ export class TestElement {
   setAttr(name, value) { this[name] = value; }
   setAttribute(name, value) { this[name] = value; }
   addClass(value) { this.className += `${this.className ? ' ' : ''}${value}`; }
+  toggleClass(value, enabled) {
+    const classes = new Set(this.className.split(' ').filter(Boolean));
+    if (enabled) classes.add(value); else classes.delete(value);
+    this.className = [...classes].join(' ');
+  }
   setText(value) { this.text = value; this.children = []; }
   appendText(value) { this.children.push(new TestElement('#text', { text: value })); }
   addEventListener(name, handler) { this[name] = handler; }
@@ -37,6 +45,22 @@ export class TestElement {
 export class FileSystemAdapter { constructor(path = '') { this.path = path; } getBasePath() { return this.path; } }
 export const Platform = { isDesktop: true, isWin: false };
 export class Modal { constructor(app) { this.app = app; this.titleEl = new TestElement(); this.contentEl = new TestElement(); } setTitle(title) { this.titleEl.setText(title); return this; } open() { this.onOpen(); } close() { this.onClose(); } }
+export class FuzzySuggestModal extends Modal {
+  setPlaceholder(value) { this.placeholder = value; }
+  open() { FuzzySuggestModal.latest = this; }
+  onClose() {}
+}
+export class Plugin {
+  constructor(app, manifest) { this.app = app; this.manifest = manifest; this.commands = []; }
+  loadData() { return Promise.resolve(null); }
+  saveData() { return Promise.resolve(); }
+  addSettingTab() {}
+  addCommand(command) { this.commands.push(command); }
+  addRibbonIcon() {}
+  addStatusBarItem() { return new TestElement(); }
+  registerEvent(event) { return event; }
+}
+export function requestUrl() { throw new Error('Tests must supply a mock transport.'); }
 export class ButtonComponent {
   constructor(container) { this.buttonEl = container.createEl('button'); }
   setButtonText(text) { this.buttonEl.text = text; return this; }
@@ -50,7 +74,11 @@ export class SearchComponent {
   setPlaceholder(text) { this.inputEl.placeholder = text; return this; }
   onChange(handler) { this.inputEl.change = handler; return this; }
 }
-export class Notice { constructor(message) { this.message = message; } }
+export class Notice {
+  constructor(message, duration) { this.message = message; this.duration = duration; this.messageEl = new TestElement(); }
+  setMessage(message) { this.message = message; this.messageEl.setText(message); return this; }
+  hide() { this.hidden = true; }
+}
 export class SecretComponent {
   constructor(_app, container) { this.element = container.createEl('select'); }
   setValue(value) { this.element.value = value; return this; }
@@ -109,6 +137,7 @@ export class Setting {
   addDropdown(callback) {
     const element = this.controlEl.createEl('select');
     const dropdown = {
+      selectEl: element,
       addOptions: options => { element.options = options; return dropdown; },
       setValue: value => { element.value = value; return dropdown; },
       onChange: handler => { element.change = handler; return dropdown; },
@@ -119,7 +148,14 @@ export class Setting {
   addText(callback) {
     const element = this.controlEl.createEl('input');
     const text = { inputEl: element, setValue: value => { element.value = value; return text; },
-      onChange: handler => { element.change = handler; return text; } };
+      onChange: handler => { element.change = value => { element.value = String(value); handler(value); }; return text; } };
+    callback(text); return this;
+  }
+  addTextArea(callback) {
+    const element = this.controlEl.createEl('textarea');
+    const text = { inputEl: element, setValue: value => { element.value = value; return text; },
+      setPlaceholder: value => { element.placeholder = value; return text; },
+      onChange: handler => { element.change = value => { element.value = String(value); handler(value); }; return text; } };
     callback(text); return this;
   }
   addSearch(callback) {
@@ -131,4 +167,5 @@ export class Setting {
 }
 export function getAllTags() { return {}; }
 export function getTags() { return []; }
+export function setIcon(element, icon) { element.icon = icon; }
 export function normalizePath(path) { return path; }

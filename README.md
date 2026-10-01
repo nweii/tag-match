@@ -1,6 +1,6 @@
 # Tag Match
 
-Tag Match finds relevant tags among those in your Obsidian vault for a given note. It uses an AI decision model to judge each candidate against your note, optionally using tagging rules and definitions you provide. You can review its suggestions or add top matches directly.
+Tag Match finds relevant tags for one or more notes in your Obsidian vault. Use your existing tags or provide a specific set, including tags you haven't used yet. It uses an AI decision model to judge which tags fit each note, optionally using tagging rules and definitions you provide. You can review suggestions for an individual note or add top matches directly to one note or a whole batch.
 
 ## AI models
 
@@ -11,6 +11,8 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 - **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
 - **Fast, low-cost matching.** Decision models like Jev make focused decisions rather than generating prose like a general-purpose LLM. Tag Match uses those per-tag judgments to consider more of your vocabulary quickly and cheaply, while taking the note and your tagging guidance into account.
 - **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
+- **Use existing tags or a specific set.** Reuse your vault's vocabulary or use "Only these tags" to supply the tags you want considered. Each tag is evaluated independently against each note, so you can apply a specific set wherever it fits.
+- **Bulk tagging.** Select individual notes, folders, or a mix of both. Adjust settings for that batch and keep working while tagging runs in the background. It's easy to check progress and results, and undo additions if needed.
 - **Fits existing agent workflows.** Your AI agents can tag notes with the same preferences and provider connections you use in Obsidian. The optional CLI lets agents review matches or add them directly.
 
 ![Tag selection settings showing a 500-tag shortlist split between most-used and sampled tags, with exclusions.](./assets/screenshots/tag-selection.png)
@@ -27,7 +29,15 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
 3. Open a Markdown note and run **Tag Match: Review tags for current note** to analyze and choose matches before adding them, or **Tag Match: Add recommended tags to current note** to analyze and add them directly.
 
-Both commands respect your exclusions and refuse to apply results if the note has changed.
+Both commands use your tag selection settings and refuse to apply results if the note has changed.
+
+### Tag multiple notes
+
+Run **Tag Match: Match tags to multiple notes…**. Expand folders in the note tree and check individual notes or a whole folder, including its subfolders. Folder selections add to the batch; uncheck individual notes to exclude them. Search reveals matching notes and their folders while preserving selections elsewhere. During search, folder checkboxes affect only matching notes. Clearing search restores the folder expansion state. Folders appear before notes; both sort by modified date by default, with creation date and alphabetical sorting in either direction. Folder dates come from their newest or oldest descendant note. You can also select files or folders in Obsidian's file explorer and use **Match tags…** or **Match tags to selected notes…** from their context menu. The dialog opens showing only those selected notes, with their folders expanded. Use **Show all notes** to include more notes from elsewhere, or **Show selected** to inspect the batch before applying tags. **Adjust for this batch** changes selection method, size, mix, minimum score, and the per-note tag limit without changing saved defaults.
+
+Bulk tagging adds recommendations directly. Check your matching settings on individual notes, then check the batch's note count and limits. **Add tags to N notes** starts the batch immediately and uses API credits. Up to three notes are analyzed in parallel, each with its own context and one settings and tag-vocabulary snapshot for the run. A note changed during analysis is skipped; other note failures are reported separately. Use **Run in background**, close the window, or press Escape to keep working in Obsidian while the batch continues. Click its native progress notice or desktop status-bar control, or run **Tag Match: Show bulk tagging progress**, to reopen it. **Stop** cancels pending work; up to three in-flight provider requests may still finish and use credits. Provider-wide failures stop the remaining queue. Results show per-note outcomes, filters for failures or skipped notes, and **Copy results** (no note bodies or API keys).
+
+**Undo additions** restores only notes whose content still exactly matches the completed write; later edits are preserved. Undo can be stopped and continued. Retained recovery snapshots have a memory budget; reaching it stops the remaining queue with instructions to run a smaller batch. **Close** dismisses completed results without another prompt. Undo is held in memory until completed results are closed, the plugin reloads, or Obsidian quits. Obsidian file recovery or a vault backup remains the recovery path after a restart.
 
 The plugin uses Obsidian APIs available on desktop and mobile. The companion CLI requires a computer with Node.js 22 or later.
 
@@ -39,7 +49,9 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 
 ### Tags to consider
 
-**Selection method** sets how the candidate pool is chosen. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
+Choose **Only these tags** in **Selection method** to score a specific set, including tags not yet used in the vault. This replaces vault selection, sampling, and exclusions. Other selection methods use vault tags and allow **Excluded tags** to remove specific tags or branches (`work/*`). You can override the saved defaults under **Adjust for this review** or **Adjust for this batch**. Tags already on a note are skipped in either mode.
+
+**Selection method** sets how the candidate pool is chosen when using vault tags. Choose the default, a specific number or percentage, or **All tags**. A larger pool can find more matches, but can take longer and use more API credits.
 
 When the pool is limited, **Selection mix** divides it between your most-used tags and a sample of the rest. You can change that balance. The sample varies between notes, giving newer and forgotten tags a chance without checking your entire vocabulary every time. After a review, **Score more tags** draws another random sample of the same size from tags that haven't been scored yet.
 
@@ -55,7 +67,7 @@ Use short rules for general guidance, such as “Tag substantial topics; skip pa
 dev = Building, debugging, or maintaining software; include implementation tutorials; exclude general technology news without development content.
 ```
 
-Use **Excluded tags** for firm exclusions: `admin` excludes that tag; `work/*` excludes `work` and its descendants. Guidance influences the model's judgment; exclusions are enforced by the plugin.
+When using vault tags, use **Excluded tags** for firm exclusions: `admin` excludes that tag; `work/*` excludes `work` and its descendants. Guidance influences the model's judgment; exclusions are enforced by the plugin. **Only these tags** uses your explicit set instead of exclusions.
 
 Long notes are sampled from the beginning, middle, and end within your text limit. The review shows how many tags will be considered and whether the note was sampled before analysis.
 

@@ -1,7 +1,7 @@
 // Adapts Obsidian's authoritative tag cache and atomic file updates to the shared core.
 import { type App, type TFile, getAllTags } from 'obsidian';
 import { type Config } from './config.ts';
-import { type Note, type TagCount, tagKey, isExcluded, exclusionRules } from './core.ts';
+import { type Note, type TagCount, tagKey, isExcluded, exclusionRules, parseOnlyTags } from './core.ts';
 import { addTags, noteMetadata } from './document.ts';
 
 export function inventory(app: App): TagCount[] {
@@ -24,11 +24,16 @@ export async function readNote(app: App, file: TFile): Promise<{ note: Note; sna
 }
 
 export async function applySuggestions(app: App, file: TFile, snapshot: string,
-  selected: string[], existingTags: string[], config: Config): Promise<void> {
-  const vocabulary = new Set(inventory(app).map(item => tagKey(item.tag)));
-  const rules = exclusionRules(config.excludedTags);
+  selected: string[], existingTags: string[], config: Config, signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted();
+  const explicit = config.poolMode === 'specific' ? parseOnlyTags(config.onlyTags) : [];
+  const vocabulary = new Set(config.poolMode === 'specific' ? explicit.map(tagKey) : inventory(app).map(item => tagKey(item.tag)));
+  const rules = config.poolMode === 'specific' ? [] : exclusionRules(config.excludedTags);
   if (selected.some(tag => !vocabulary.has(tagKey(tag)) || isExcluded(tag, rules))) {
     throw new Error('The tag vocabulary or exclusions changed. Run tagging again.');
   }
-  await app.vault.process(file, content => addTags(content, snapshot, selected, existingTags));
+  return app.vault.process(file, content => {
+    signal?.throwIfAborted();
+    return addTags(content, snapshot, selected, existingTags);
+  });
 }

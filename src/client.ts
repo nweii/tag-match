@@ -9,6 +9,15 @@ export interface HttpResponse { status: number; json: unknown; retryAfter?: stri
 export type Transport = (request: EvaluationRequest, apiKey: string, signal: AbortSignal, endpoint: string) => Promise<HttpResponse>;
 export type Pause = (ms: number, signal: AbortSignal) => Promise<void>;
 
+export class ProviderRequestError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ProviderRequestError';
+    this.status = status;
+  }
+}
+
 const pause: Pause = (ms, signal) => new Promise((resolve, reject) => {
   signal.throwIfAborted();
   // This module also runs in Node, where window does not exist.
@@ -20,31 +29,37 @@ const pause: Pause = (ms, signal) => new Promise((resolve, reject) => {
 
 export async function evaluate(request: EvaluationRequest, provider: ProviderConfig, transport: Transport,
   signal: AbortSignal = new AbortController().signal, sleep: Pause = pause): Promise<unknown> {
-  if (!provider.apiKey.trim()) throw new Error(`Add your ${provider.label} API key in Tag Match settings.`);
+  if (!provider.apiKey.trim()) throw new ProviderRequestError(`Add your ${provider.label} API key in Tag Match settings.`, 401);
   for (let attempt = 0; attempt < 3; attempt++) {
     signal.throwIfAborted();
-    const result = await transport(request, provider.apiKey, signal, provider.endpoint);
+    let result: HttpResponse;
+    try {
+      result = await transport(request, provider.apiKey, signal, provider.endpoint);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      throw new ProviderRequestError(`${provider.label} could not complete the request. Check your connection and try again.`, 0, { cause: error });
+    }
     signal.throwIfAborted();
     if (result.status >= 200 && result.status < 300) return result.json;
     if ([429, 529, 502, 503, 504].includes(result.status) && attempt < 2) {
       const seconds = result.retryAfter === undefined ? NaN : Number(result.retryAfter);
       const dateDelay = result.retryAfter ? Date.parse(result.retryAfter) - Date.now() : NaN;
       const wait = Number.isFinite(seconds) ? seconds * 1000 : Number.isFinite(dateDelay) ? dateDelay : 1000 * 2 ** attempt;
-      if (wait > 30000) throw new Error(`${provider.label} is busy. Try again after its rate limit resets.`);
+      if (wait > 30000) throw new ProviderRequestError(`${provider.label} is busy. Try again after its rate limit resets.`, result.status);
       await sleep(Math.max(0, wait), signal);
       continue;
     }
     const messages: Record<number, string> = {
-      401: `${provider.label} rejected the API key.`,
-      402: `${provider.label} requires available credits for this request.`,
-      403: `${provider.label} rejected access to the selected model.`,
+      401: `${provider.label} rejected the API key. Check the API key in Tag Match settings, then try again.`,
+      402: `${provider.label} requires available credits for this request. Add credits to your ${provider.label} account, then try again.`,
+      403: `${provider.label} rejected access to the selected model. Check model access with ${provider.label}, then try again.`,
       422: `${provider.label} rejected the request. Reduce the note context or check the model.`,
       429: `${provider.label} rate limit reached. Try again shortly.`,
       529: `${provider.label} is busy. Try again shortly.`,
     };
-    throw new Error(messages[result.status] ?? `${provider.label} request failed (HTTP ${result.status}).`);
+    throw new ProviderRequestError(messages[result.status] ?? `${provider.label} request failed (HTTP ${result.status}). Try again; if it persists, check your connection and model settings.`, result.status);
   }
-  throw new Error(`${provider.label} request failed.`);
+  throw new ProviderRequestError(`${provider.label} request failed.`, 0);
 }
 
 export interface Progress { complete: number; total: number }

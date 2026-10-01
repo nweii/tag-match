@@ -12,7 +12,7 @@ export function splitDocument(content: string) {
 function yamlDocument(text: string) {
   const doc = parseDocument(text);
   if (doc.errors.length) throw new Error('The note has invalid YAML frontmatter. Fix it before tagging.');
-  if (doc.contents !== null && !isMap(doc.contents)) throw new Error('Frontmatter must be a property map.');
+  if (doc.contents !== null && !isMap(doc.contents)) throw new Error('Frontmatter must be a property map. Use named properties such as “tags: [research]”, then try again.');
   return doc;
 }
 
@@ -20,7 +20,7 @@ function tagValues(value: unknown): string[] {
   if (value === undefined || value === null) return [];
   if (typeof value === 'string') return value.split(/[,\s]+/).filter(Boolean);
   if (Array.isArray(value) && value.every(item => typeof item === 'string')) return value;
-  throw new Error('The note’s tags property must contain text tags.');
+  throw new Error('The note’s tags property must contain text tags. Change it to text or a list of tag names, then try again.');
 }
 
 function nodeValue(value: unknown): unknown {

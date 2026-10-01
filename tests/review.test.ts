@@ -9,6 +9,32 @@ import type { Transport } from '../src/client.ts';
 interface TestControl { textContent: string; placeholder?: string; hidden?: boolean; disabled?: boolean; checked?: boolean;
   click?(): Promise<void>; change?(value?: string): void; className?: string; all?(tag: string): TestControl[] }
 
+test('review applies its explicit tag override and never offers to rescore that set', async () => {
+  let written = 'Body';
+  const app = { metadataCache: { getTags: () => ({ '#design': 10 }) },
+    secretStorage: { getSecret: () => 'test-key' }, vault: {
+      process: async (_file: unknown, transform: (content: string) => string) => { written = transform(written); return written; },
+    } };
+  const plugin = { settings: { ...DEFAULTS, poolMode: 'specific', poolCount: 1, onlyTags: 'global/tag',
+    excludedTags: 'new/topic', typeSafeSecretId: 'saved-key' } as Config,
+    transport: async () => ({ status: 200, json: { answers: { tag_0: { type: 'noul', noul: 0.9 } } } }),
+    beginRun: () => true, endRun: () => {} };
+  const saved = { ...plugin.settings };
+  const modal = new ReviewModal(app as never, plugin as never, { path: 'note.md', basename: 'note' } as never,
+    { title: 'Note', body: 'Body', existingTags: [] }, 'Body');
+  modal.open();
+  const content = modal.contentEl as unknown as { textContent: string; all(tag: string): TestControl[] };
+  const fields = content.all('textarea');
+  fields[0]!.change?.('new/topic');
+  assert.equal(fields.length, 1);
+  assert.match(content.textContent, /1 tag to score/);
+  await content.all('button').find(button => button.textContent === 'Analyze note')!.click?.();
+  assert.ok(!content.all('button').some(button => button.textContent.startsWith('Score ')));
+  await content.all('button').find(button => button.textContent === 'Add 1 tag')!.click?.();
+  assert.match(written, /new\/topic/);
+  assert.deepEqual(plugin.settings, saved);
+});
+
 test('review keeps its previewed selection while refreshing the captured secret', async () => {
   let counts: Record<string, number> = { '#design': 3 };
   let secret = 'initial-key';

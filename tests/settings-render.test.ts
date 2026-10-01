@@ -5,7 +5,7 @@ import { FileSystemAdapter, Platform, Setting } from 'obsidian';
 import { DEFAULTS, type Config } from '../src/config.ts';
 import { TagMatchSettingsTab } from '../src/settings.ts';
 
-interface Definition { name?: string; desc?: unknown; items?: Definition[]; render?: (setting: Setting) => void; control?: { options?: Record<string, string> }; visible?: () => boolean }
+interface Definition { name?: string; desc?: unknown; items?: Definition[]; render?: (setting: Setting) => void; control?: { options?: Record<string, string>; validate?: (value: string) => string | undefined }; visible?: () => boolean }
 interface RenderElement { textContent: string; open: boolean; value?: unknown; all(tag: string): RenderElement[]; click?(): Promise<void>; change?(value: unknown): Promise<void> }
 
 class Fragment {
@@ -25,7 +25,7 @@ function renderElement(setting: Setting): RenderElement {
 }
 
 function setup(desktop: boolean, eligible = 3,
-  poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all' = 'auto', installed = desktop,
+  poolMode: Config['poolMode'] = 'auto', installed = desktop,
   settings: Partial<Config> = {}, cliKind: 'current' | 'different' | 'newer' | 'unknown' | 'missing' = installed ? 'current' : 'missing',
   secrets: Record<string, string> = {}) {
   (Platform as { isDesktop: boolean }).isDesktop = desktop;
@@ -48,6 +48,36 @@ function setup(desktop: boolean, eligible = 3,
   const items = definitions.flatMap(item => item.items ?? []);
   return { items, copied, tab, plugin };
 }
+
+test('global tag constraints persist and hide irrelevant selection controls until cleared', async () => {
+  const { tab, plugin, items } = setup(true, 3, 'specific', true, { onlyTags: 'new/topic, tag-0', excludedTags: 'tag-0' });
+  assert.ok(items.some(item => item.name === 'Tags'));
+  assert.ok(items.some(item => item.name === 'Excluded tags'));
+  assert.equal(items.find(item => item.name === 'Selection method')!.visible?.(), undefined);
+  assert.equal(items.find(item => item.name === 'Tags')!.visible?.(), true);
+  assert.equal(items.find(item => item.name === 'Excluded tags')!.visible?.(), false);
+  assert.equal(items.find(item => item.name === 'Selection mix')!.visible?.(), false);
+  assert.equal(items.find(item => item.name === 'Selection summary')!.visible?.(), true);
+  const summary = rendered(tab, items.find(item => item.name === 'Selection summary')!);
+  assert.match(renderElement(summary).textContent, /2 specified tags to consider/);
+  await tab.setControlValue('poolMode', 'count');
+  assert.equal(plugin.settings.onlyTags, 'new/topic, tag-0');
+  assert.equal(plugin.settings.excludedTags, 'tag-0');
+  assert.equal(items.find(item => item.name === 'Tags')!.visible?.(), false);
+  assert.equal(items.find(item => item.name === 'Excluded tags')!.visible?.(), true);
+});
+
+test('invalid saved explicit tags remain editable without selecting vault tags', async () => {
+  const { tab, plugin, items } = setup(true, 3, 'specific', true, { onlyTags: 'two words' });
+  const tags = items.find(item => item.name === 'Tags')!;
+  assert.ok(tags.control?.validate?.('two words'));
+  assert.equal(tags.control?.validate?.('new/topic'), undefined);
+  const summary = rendered(tab, items.find(item => item.name === 'Selection summary')!);
+  assert.match(renderElement(summary).textContent, /0 specified tags to consider/);
+  await tab.setControlValue('onlyTags', 'new/topic');
+  assert.equal(plugin.settings.onlyTags, 'new/topic');
+  assert.match(renderElement(summary).textContent, /1 specified tag to consider/);
+});
 
 test('a synced secret reference without a local key prompts for this device', () => {
   for (const [provider, reference, name] of [

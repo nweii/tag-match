@@ -1,5 +1,5 @@
 // Registers Obsidian commands and settings while keeping all tagging decisions in shared modules.
-import { Notice, Platform, Plugin, normalizePath, requestUrl } from 'obsidian';
+import { ButtonComponent, Notice, Platform, Plugin, normalizePath, requestUrl, type TFile } from 'obsidian';
 import { type Config, normalizeConfig, persistedConfig } from './config.ts';
 import { hydrateCredentials, migrateLegacyCredentials } from './secret-storage.ts';
 import { type Transport } from './client.ts';
@@ -7,6 +7,7 @@ import { applySuggestions, inventory, readNote } from './vault.ts';
 import { suggest } from './client.ts';
 import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
+import { BulkTagModal, filesInScope } from './bulk-modal.ts';
 import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
 
 declare const __TAG_MATCH_CLI_IDENTITY__: string;
@@ -16,7 +17,13 @@ export default class TagMatchPlugin extends Plugin {
   agentCliStatus: AgentCliStatus = { kind: 'missing' };
   private saveQueue: Promise<void> = Promise.resolve();
   private reviews = new Set<ReviewModal>();
+  private bulkModals = new Set<BulkTagModal>();
   private runs = new Map<string, AbortController>();
+  private bulkStatus?: ButtonComponent;
+  private bulkNotice?: Notice;
+  private bulkNoticeButton?: ButtonComponent;
+  private noticeRun?: BulkTagModal;
+  private noticeFinished = false;
 
   transport: Transport = async (request, apiKey, signal, endpoint) => {
     signal.throwIfAborted();
@@ -64,6 +71,73 @@ export default class TagMatchPlugin extends Plugin {
         return true;
       } });
     this.addRibbonIcon('tags', 'Review tags for current note', () => { void this.openReview(); });
+    this.addCommand({ id: 'add-recommended-tags-multiple', name: 'Match tags to multiple notes…',
+      callback: () => this.openBulk() });
+    this.addCommand({ id: 'show-bulk-progress', name: 'Show bulk tagging progress',
+      checkCallback: checking => {
+        const run = this.retainedBulk();
+        if (!run) return false;
+        if (!checking) run.open();
+        return true;
+      } });
+    if (Platform.isDesktop) {
+      this.bulkStatus = new ButtonComponent(this.addStatusBarItem()).setButtonText('Tag Match')
+        .setTooltip('Show bulk tagging progress and results').onClick(() => this.retainedBulk()?.open());
+      this.bulkStatus.buttonEl.hidden = true;
+    }
+    this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
+      const files = filesInScope(this.app.vault.getMarkdownFiles(), [file.path || '/']);
+      if (!files.length) return;
+      menu.addItem(item => item.setTitle('Match tags…').setIcon('tags')
+        .onClick(() => this.openBulk(files)));
+    }));
+    this.registerEvent(this.app.workspace.on('files-menu', (menu, files) => {
+      const selected = filesInScope(this.app.vault.getMarkdownFiles(), files.map(file => file.path || '/'));
+      if (!selected.length) return;
+      menu.addItem(item => item.setTitle('Match tags to selected notes…').setIcon('tags')
+        .onClick(() => this.openBulk(selected)));
+    }));
+  }
+
+  private openBulk(files?: TFile[]) {
+    const retained = this.retainedBulk();
+    if (retained) { retained.open(); return; }
+    // One plugin-owned bulk controller bounds requests and recovery storage across every entry point.
+    for (const idle of this.bulkModals) idle.dispose();
+    const modal = new BulkTagModal(this.app, this, files, () => {
+      if (modal.disposed) this.bulkModals.delete(modal);
+      this.updateBulkStatus();
+    });
+    this.bulkModals.add(modal);
+    const close = modal.onClose.bind(modal);
+    modal.onClose = () => { close(); if (!modal.retained) this.bulkModals.delete(modal); this.updateBulkStatus(); };
+    modal.open();
+  }
+
+  private retainedBulk() { return [...this.bulkModals].find(modal => modal.retained); }
+
+  private updateBulkStatus() {
+    const run = this.retainedBulk();
+    if (this.bulkStatus) {
+      this.bulkStatus.buttonEl.hidden = !run;
+      if (run) this.bulkStatus.setButtonText(run.progressText);
+    }
+    if (!run || run.visible) {
+      this.bulkNotice?.hide(); this.bulkNotice = undefined;
+      this.bulkNoticeButton = undefined; this.noticeRun = undefined;
+      return;
+    }
+    const finished = !run.active;
+    if (!this.bulkNotice || this.noticeRun !== run || this.noticeFinished !== finished) {
+      this.bulkNotice?.hide();
+      this.bulkNotice = new Notice('Tag Match', 0);
+      this.bulkNotice.messageEl.empty();
+      this.bulkNoticeButton = new ButtonComponent(this.bulkNotice.messageEl)
+        .setTooltip('Open bulk tagging progress and results').onClick(() => run.open());
+      this.bulkNoticeButton.buttonEl.addClass('tag-match-bulk-notice-action');
+      this.noticeRun = run; this.noticeFinished = finished;
+    }
+    this.bulkNoticeButton!.setButtonText(finished ? 'Tag Match: Batch finished · Open results' : `${run.progressText} · Open progress`);
   }
 
   async refreshAgentCliStatus(): Promise<void> {
@@ -126,7 +200,8 @@ export default class TagMatchPlugin extends Plugin {
     const progress = new Notice('Preparing tag analysis…', 0);
     try {
       const { note, snapshot } = await readNote(this.app, file);
-      const result = await suggest(note, inventory(this.app), this.credentialSnapshot(), this.transport,
+      const config = this.credentialSnapshot();
+      const result = await suggest(note, inventory(this.app), config, this.transport,
         controller.signal, state => progress.setMessage(`Evaluated ${state.complete} of ${state.total} tags…`));
       const selected = result.recommended.map(item => item.tag);
       if (!selected.length) {
@@ -135,7 +210,7 @@ export default class TagMatchPlugin extends Plugin {
         return;
       }
       controller.signal.throwIfAborted();
-      await applySuggestions(this.app, file, snapshot, selected, note.existingTags, this.settings);
+      await applySuggestions(this.app, file, snapshot, selected, note.existingTags, config, controller.signal);
       progress.hide();
       new Notice(`Added ${selected.length} recommended ${selected.length === 1 ? 'tag' : 'tags'} to ${file.basename}.`);
     } catch (error) {
@@ -145,8 +220,10 @@ export default class TagMatchPlugin extends Plugin {
   }
 
   onunload() {
+    this.bulkNotice?.hide();
     for (const controller of this.runs.values()) controller.abort();
     this.runs.clear();
     for (const modal of this.reviews) modal.close();
+    for (const modal of this.bulkModals) modal.dispose();
   }
 }

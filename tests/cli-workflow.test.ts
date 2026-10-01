@@ -23,6 +23,16 @@ async function fixture(content = '---\ntags: [existing]\n---\nDesign note\n') {
   return path;
 }
 
+test('CLI explicit tags can introduce a tag but apply respects the current allowed set', async () => {
+  const path = await fixture();
+  const settings = config({ poolMode: 'specific', onlyTags: 'new/topic, existing', excludedTags: 'new/topic' });
+  const plan = await reviewFile(path, [], settings, transport);
+  assert.deepEqual(plan.evaluatedTags, ['new/topic']);
+  await assert.rejects(applyReviewPlan(plan, ['new/topic'], config({ poolMode: 'specific', onlyTags: 'another' })), /outside/);
+  assert.deepEqual((await applyReviewPlan(plan, ['new/topic'], settings)).addedTags, ['new/topic']);
+  assert.match(await readFile(path, 'utf8'), /new\/topic/);
+});
+
 test('review returns a non-writing plan and apply writes explicit reviewed tags', async () => {
   const path = await fixture();
   const before = await readFile(path, 'utf8');

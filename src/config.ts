@@ -7,7 +7,7 @@ export interface Config {
   openRouterApiKey: string;
   openRouterSecretId: string;
   openRouterModel: string;
-  poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all';
+  poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all' | 'specific';
   poolPercent: number;
   poolCount: number;
   minimumUses: number;
@@ -15,6 +15,7 @@ export interface Config {
   maxTagsToAdd: number;
   minProbability: number;
   maxBodyChars: number;
+  onlyTags: string;
   excludedTags: string;
   guidance: string;
   definitions: string;
@@ -26,7 +27,7 @@ export const DEFAULTS: Config = {
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
   maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
-  excludedTags: '', guidance: '', definitions: '',
+  onlyTags: '', excludedTags: '', guidance: '', definitions: '',
 };
 
 export function record(value: unknown): value is Record<string, unknown> {
@@ -36,7 +37,7 @@ export function record(value: unknown): value is Record<string, unknown> {
 export function normalizeConfig(value: unknown): Config {
   const raw = record(value) ? value : {};
   const result = { ...DEFAULTS };
-  for (const key of ['typeSafeSecretId', 'apiKey', 'model', 'openRouterApiKey', 'openRouterSecretId', 'openRouterModel', 'excludedTags', 'guidance', 'definitions'] as const) {
+  for (const key of ['typeSafeSecretId', 'apiKey', 'model', 'openRouterApiKey', 'openRouterSecretId', 'openRouterModel', 'onlyTags', 'excludedTags', 'guidance', 'definitions'] as const) {
     if (typeof raw[key] === 'string') result[key] = raw[key];
   }
   result.apiKey = result.apiKey.trim();
@@ -46,7 +47,7 @@ export function normalizeConfig(value: unknown): Config {
   result.openRouterSecretId = result.openRouterSecretId.trim();
   result.openRouterModel = result.openRouterModel.trim() || DEFAULTS.openRouterModel;
   if (raw.provider === 'typesafe' || raw.provider === 'openrouter') result.provider = raw.provider;
-  if (raw.poolMode === 'auto' || raw.poolMode === 'percent' || raw.poolMode === 'count' || raw.poolMode === 'minimum' || raw.poolMode === 'all') {
+  if (raw.poolMode === 'auto' || raw.poolMode === 'percent' || raw.poolMode === 'count' || raw.poolMode === 'minimum' || raw.poolMode === 'all' || raw.poolMode === 'specific') {
     result.poolMode = raw.poolMode;
   }
   const limits = {

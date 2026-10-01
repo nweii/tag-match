@@ -2,12 +2,73 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULTS, normalizeConfig, type Config } from '../src/config.ts';
-import { buildBatches, parseJudgments, recommendations, selectCandidates } from '../src/core.ts';
+import { buildBatches, parseJudgments, recommendations, selectCandidates, parseOnlyTags } from '../src/core.ts';
 import { BatchEvaluationError, evaluate, suggest, type Transport } from '../src/client.ts';
 import { OPEN_ROUTER_ENDPOINT, resolveProvider, TYPE_SAFE_ENDPOINT } from '../src/provider.ts';
 
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', ...values });
 const note = { title: 'A note', body: 'Design systems and typography.', existingTags: ['existing'] };
+
+test('provider and malformed-response failures give recovery actions without exposing credentials', async () => {
+  const request = buildBatches(note, selectCandidates([{ tag: 'design', count: 1 }], [], config()), config()).batches[0]!.request;
+  for (const provider of ['typesafe', 'openrouter'] as const) {
+    const settings = config({ provider, apiKey: 'private-key', openRouterApiKey: 'private-router-key' });
+    for (const [status, remedy] of [[401, /API key in Tag Match settings/], [402, /Add credits/],
+      [403, /Check model access/], [500, /Try again/]] as const) {
+      await assert.rejects(evaluate(request, resolveProvider(settings), async () => ({ status, json: {} })), error => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, remedy);
+        assert.doesNotMatch(error.message, /private-key|private-router-key/);
+        return true;
+      });
+    }
+  }
+  for (const response of [{}, { answers: {} }, { answers: { tag_0: { type: 'noul', noul: 2 } } }]) {
+    assert.throws(() => parseJudgments(response, ['design']), /Try analyzing this note again/);
+  }
+});
+
+test('explicit tag sets override vault selection and exclusions while skipping existing tags', () => {
+  for (const poolCount of [1, 999]) {
+    const pool = selectCandidates([{ tag: 'design', count: 30 }, { tag: 'unlisted', count: 100 }], ['existing'],
+      config({ poolMode: 'specific', poolCount, minimumUses: 999, poolPercent: 1,
+        onlyTags: '#Design, design\nnew/topic, another, blocked/child, existing', excludedTags: 'blocked/*' }));
+    assert.deepEqual(pool.tags.map(item => item.tag), ['Design', 'another', 'blocked/child', 'new/topic']);
+    assert.equal(pool.tags.find(item => item.tag === 'new/topic')?.count, 0);
+    assert.equal(pool.excluded, 0);
+    assert.equal(pool.existing, 1);
+    assert.equal(pool.discovery, 0);
+  }
+  assert.deepEqual(parseOnlyTags('#écriture, 2026-plan, 👩‍💻'), ['écriture', '2026-plan', '👩‍💻']);
+  assert.equal(normalizeConfig({ onlyTags: 'new/topic' }).onlyTags, 'new/topic');
+  assert.equal(normalizeConfig({}).onlyTags, '');
+});
+
+test('malformed explicit tags fail before transport instead of falling back to the vault', async () => {
+  for (const onlyTags of ['two words', '123', '##tag', 'work/*', ', ,', 'tag:one']) {
+    assert.throws(() => parseOnlyTags(onlyTags), /tag/i);
+    let calls = 0;
+    await assert.rejects(suggest(note, [{ tag: 'design', count: 1 }], config({ poolMode: 'specific', onlyTags }),
+      async () => { calls++; throw new Error('Unexpected transport'); }, new AbortController().signal), /tag/i);
+    assert.equal(calls, 0);
+  }
+  assert.deepEqual(parseOnlyTags(' \n '), []);
+  assert.equal(selectCandidates([{ tag: 'design', count: 1 }], [], config({ poolMode: 'specific' })).tags.length, 0);
+  assert.equal(selectCandidates([{ tag: 'design', count: 1 }], [], config({ onlyTags: 'two words' })).tags.length, 1);
+});
+
+test('specific tags all get scored while recommendation score and addition limits still apply', async () => {
+  const sent: string[] = [];
+  const transport: Transport = async request => {
+    sent.push(...Object.values(request.questions).map(value => (value as { instructions: { tag: string } }).instructions.tag));
+    return { status: 200, json: { answers: Object.fromEntries(Object.keys(request.questions)
+      .map(key => [key, { type: 'noul', noul: 0.9 }])) } };
+  };
+  const settings = config({ poolMode: 'specific', onlyTags: 'new/topic, second', maxTagsToAdd: 1, minProbability: 0.95 });
+  assert.deepEqual((await suggest(note, [], settings, transport)).recommended, []);
+  assert.deepEqual(sent, ['new/topic', 'second']);
+  assert.equal((await suggest(note, [], { ...settings, minProbability: 0.75 }, transport)).recommended.length, 1);
+});
 
 test('automatic mode checks all small pools, then at least 250 or the top 20 percent', () => {
   const size = (eligible: number) => selectCandidates(

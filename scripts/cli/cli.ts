@@ -38,6 +38,9 @@ File workflow:
   Map its records with rows.map(item => item.tag) and pass those strings as existingTags. --note remains an absolute Markdown path.
 
 Tag selection:
+  onlyTags lists tags separated by commas or newlines, including tags not yet in the vault.
+  poolMode "specific" scores only that list, skipping existing tags and overriding exclusions and inventory selection.
+  An empty specific set scores no tags; other modes use the inventory and selection settings below.
   Default (poolMode "auto") considers up to 250 tags, or 20% of all tags if that is more.
   In default, percentage, and number modes, mostUsedPercent sets the share selected by use count; the rest is sampled.
   mostUsedPercent accepts 0 through 100 and defaults to 70.
