@@ -1,10 +1,14 @@
 # Tag Match
 
-Tag Match finds relevant tags for one or more notes in your Obsidian vault. Use your existing tags or provide a specific set, including tags you haven't used yet. It uses an AI decision model to judge which tags fit each note, optionally using tagging rules and definitions you provide. You can review suggestions for an individual note or add top matches directly to one note or a whole batch.
+Tag Match finds relevant tags for notes in your Obsidian vault. You can use existing vault tags or provide a specific set, including tags you haven't used yet.
+
+You can review suggestions for an individual note or add matches directly to one note or a batch.
 
 ## AI models
 
-Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](https://openrouter.ai/). Analysis requires an account, an API key, and paid API credits with either provider.
+Tag Match uses AI decision models through [TypeSafe](https://typesafe.ai/) or [OpenRouter](https://openrouter.ai/). Jev is the default. With OpenRouter, you can choose another model compatible with its Decisions API, which returns probabilities rather than generated text.
+
+Analysis requires an account, an API key, and paid API credits with your chosen provider.
 
 ## Features
 
