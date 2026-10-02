@@ -7,6 +7,10 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { record } from '../src/config.ts';
 
+type CliOutput = { status: string; mode: string; total: number; summary: Record<string, number>;
+  pool: { tags: { tag: string }[] }; recommended: { tag: string }[]; addedTags: string[]; results: { status: string }[] };
+const output = (text: string) => JSON.parse(text) as CliOutput;
+
 async function cli(args: string[], input = '', mockNetwork = false): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const preload = mockNetwork ? ['--import', './tests/fixtures/fetch-stub.mjs'] : [];
@@ -120,4 +124,103 @@ test('errors use stderr and leave stdout empty', async () => {
   assert.equal(result.code, 1);
   assert.equal(result.stdout, '');
   assert.match(result.stderr, /Could not read config/);
+});
+
+test('specific sets and invocation overrides work across preview, suggest, review, apply, and quick apply', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-overrides-'));
+  const configPath = join(directory, 'data.json');
+  const notePath = join(directory, 'note.md');
+  const saved = JSON.stringify({ apiKey: 'test-key', poolMode: 'all', excludedTags: 'new/*', maxTagsToAdd: 5 });
+  await writeFile(configPath, saved); await writeFile(notePath, 'Synthetic note\n');
+  const overrides = { poolMode: 'specific', onlyTags: 'new/topic, other', maxTagsToAdd: 2 };
+  const preview = await cli(['preview', '--config', configPath], JSON.stringify({ overrides,
+    note: { title: 'Note', body: 'Body', existingTags: [] } }));
+  assert.equal(preview.code, 0, preview.stderr);
+  assert.deepEqual(output(preview.stdout).pool.tags.map(item => item.tag), ['new/topic', 'other']);
+  const suggested = await cli(['suggest', '--config', configPath, '--only-tags', 'new/topic', '--max-tags', '1'],
+    JSON.stringify({ overrides, note: { title: 'Note', body: 'Body', existingTags: [] } }), true);
+  assert.equal(suggested.code, 0, suggested.stderr);
+  assert.deepEqual(output(suggested.stdout).recommended.map(item => item.tag), ['new/topic']);
+  const review = await cli(['review', '--config', configPath, '--note', notePath, '--only-tags', 'new/topic'], '{}', true);
+  assert.equal(review.code, 0, review.stderr);
+  const applied = await cli(['apply', '--config', configPath], JSON.stringify({ overrides, plan: JSON.parse(review.stdout) as unknown, selectedTags: ['new/topic'] }));
+  assert.equal(applied.code, 0, applied.stderr);
+  assert.deepEqual(output(applied.stdout).addedTags, ['new/topic']);
+  const quick = await cli(['quick-apply', '--config', configPath, '--note', notePath, '--only-tags', 'new/topic, another', '--min-score', '0.8'], '{}', true);
+  assert.equal(quick.code, 0, quick.stderr);
+  assert.deepEqual(output(quick.stdout).addedTags, ['another']);
+  assert.equal(await readFile(configPath, 'utf8'), saved);
+});
+
+test('bulk defaults to an offline dry run, applies with recovery, filters reports, and supports offline undo', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-command-'));
+  const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
+  const paths = [join(directory, 'one.md'), join(directory, 'two.md')];
+  await writeFile(configPath, JSON.stringify({ poolMode: 'all' }));
+  await Promise.all(paths.map(path => writeFile(path, 'Synthetic note\n')));
+  const input = JSON.stringify({ notes: paths, overrides: { poolMode: 'specific', onlyTags: 'new/topic' } });
+  const preview = await cli(['bulk', '--config', configPath, '--quiet'], input);
+  assert.equal(preview.code, 0, preview.stderr); assert.equal(preview.stderr, '');
+  assert.equal(output(preview.stdout).mode, 'dry-run'); assert.equal(output(preview.stdout).summary.previewed, 2);
+  await writeFile(configPath, JSON.stringify({ apiKey: 'synthetic-key', poolMode: 'all' }));
+  const applied = await cli(['bulk', '--config', configPath, '--apply', '--recovery', recovery, '--quiet', '--filter', 'applied'], input, true);
+  assert.equal(applied.code, 0, applied.stderr); assert.equal(applied.stderr, '');
+  assert.equal(output(applied.stdout).summary.applied, 2); assert.equal(output(applied.stdout).results.length, 2);
+  const previewUndo = await cli(['bulk-undo', '--recovery', recovery]);
+  assert.equal(previewUndo.code, 0, previewUndo.stderr); assert.equal(output(previewUndo.stdout).results[0]!.status, 'ready');
+  const undo = await cli(['bulk-undo', '--recovery', recovery, '--apply']);
+  assert.equal(undo.code, 0, undo.stderr);
+  assert.equal(await readFile(paths[0]!, 'utf8'), 'Synthetic note\n');
+});
+
+test('bulk partial outcomes remain valid JSON with nonzero exit and summaries retain filtered notes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-partial-'));
+  const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
+  const good = join(directory, 'good.md'); const broken = join(directory, 'broken.md');
+  await writeFile(configPath, JSON.stringify({ apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
+  await writeFile(good, 'Good'); await writeFile(broken, '---\ntags: [broken\n---\nBody');
+  const result = await cli(['bulk', '--config', configPath, '--apply', '--recovery', recovery, '--filter', 'failed'], JSON.stringify({ notes: [good, broken] }), true);
+  assert.equal(result.code, 1); const report = output(result.stdout);
+  assert.equal(report.summary.applied, 1); assert.equal(report.summary.failed, 1); assert.equal(report.total, 2);
+  assert.deepEqual(report.results.map(item => item.status), ['failed']);
+  assert.ok(result.stderr.split('\n').filter(Boolean).every(line => record(JSON.parse(line))));
+});
+
+test('invalid bulk modes, flags, and overrides fail before network or note writes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-invalid-'));
+  const configPath = join(directory, 'data.json'); const note = join(directory, 'note.md');
+  await writeFile(configPath, '{}'); await writeFile(note, 'Unchanged');
+  for (const flags of [['--apply'], ['--dry-run', '--apply'], ['--concurrency', '4'], ['--sort', 'wrong'], ['--max-tags', '1.5'], ['--min-score', '2'], ['--unknown', 'x']]) {
+    const result = await cli(['bulk', '--config', configPath, ...flags], JSON.stringify({ notes: [note], tags: [] }));
+    assert.equal(result.code, 1); assert.equal(result.stdout, '');
+  }
+  const invalid = await cli(['preview', '--config', configPath], JSON.stringify({ overrides: { apiKey: 'must-not-be-accepted' } }));
+  assert.equal(invalid.code, 1); assert.match(invalid.stderr, /Unknown override/);
+  assert.equal(await readFile(note, 'utf8'), 'Unchanged');
+});
+
+test('SIGINT returns a cancelled bulk report and preserves undo for completed writes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-signal-'));
+  const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
+  const paths = [join(directory, 'one.md'), join(directory, 'two.md'), join(directory, 'three.md')];
+  await writeFile(configPath, JSON.stringify({ apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
+  await Promise.all(paths.map(path => writeFile(path, 'Body')));
+  const result = await new Promise<{ code: number; stdout: string }>((resolveRun, reject) => {
+    const child = spawn(process.execPath, ['--import', './tests/fixtures/bulk-fetch-stub.mjs', '--experimental-strip-types', 'scripts/cli/cli.ts',
+      'bulk', '--config', configPath, '--apply', '--recovery', recovery, '--concurrency', '1'], { cwd: process.cwd() });
+    let stdout = ''; let stderr = ''; let cancelled = false;
+    child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', chunk => {
+      stderr += chunk;
+      if (!cancelled && stderr.includes('"status":"applied"')) { cancelled = true; child.kill('SIGINT'); }
+    });
+    child.on('error', reject); child.on('close', code => resolveRun({ code: code ?? -1, stdout }));
+    child.stdin.end(JSON.stringify({ notes: paths }));
+  });
+  assert.equal(result.code, 130);
+  const report = output(result.stdout);
+  assert.equal(report.status, 'cancelled'); assert.ok(report.summary.applied! >= 1); assert.ok(report.summary.cancelled! >= 1);
+  const undo = await cli(['bulk-undo', '--recovery', recovery, '--apply']);
+  assert.equal(undo.code, 0, undo.stderr);
+  for (const path of paths) assert.equal(await readFile(path, 'utf8'), 'Body');
 });

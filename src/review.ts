@@ -50,7 +50,8 @@ export class ReviewModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    this.setTitle('Review tags');
+    this.setTitle('Suggest tags for current note');
+    this.modalEl.addClass('tag-match-dialog');
     contentEl.addClass('tag-match-review');
     contentEl.createEl('p', { cls: 'tag-match-note-title', text: this.note.title });
     this.overview = contentEl.createDiv('tag-match-overview');

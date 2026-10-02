@@ -51,6 +51,7 @@ export class BulkTagModal extends Modal {
   private activityProgress!: HTMLElement;
   private activityPath!: HTMLElement;
   private results!: HTMLElement;
+  private resultsToolbar!: HTMLElement;
   private start!: ButtonComponent;
   private stop!: ButtonComponent;
   private undo!: ButtonComponent;
@@ -82,7 +83,8 @@ export class BulkTagModal extends Modal {
     this.stateChanged();
     // Reopening uses the same controller, settings, outcomes, and recovery snapshots.
     if (this.retained) return;
-    this.setTitle('Tag multiple notes');
+    this.setTitle('Match tags to multiple notes');
+    this.modalEl.addClass('tag-match-dialog');
     this.contentEl.addClass('tag-match-review');
     this.contentEl.addClass('tag-match-bulk');
     this.scopeControls = this.contentEl.createDiv('tag-match-bulk-scope');
@@ -138,13 +140,19 @@ export class BulkTagModal extends Modal {
     this.activity.hidden = true;
     this.activityProgress = this.activity.createSpan('tag-match-bulk-scoring');
     this.activityPath = this.activity.createSpan('tag-match-bulk-activity-path');
-    const filterLabel = this.contentEl.createEl('label', { cls: 'tag-match-bulk-result-filter', text: 'Results' });
+    this.resultsToolbar = this.contentEl.createDiv('tag-match-bulk-results-toolbar');
+    const filterLabel = this.resultsToolbar.createEl('label', { cls: 'tag-match-bulk-result-filter', text: 'Results' });
     this.resultsFilter = filterLabel.createEl('select', { cls: 'dropdown', attr: { 'aria-label': 'Results to show' } });
     for (const [value, text] of Object.entries({ all: 'All notes', changed: 'Changed notes', problems: 'Failed or skipped', cancelled: 'Not processed' })) {
       this.resultsFilter.createEl('option', { value, text });
     }
     this.resultsFilter.addEventListener('change', () => { this.resultsLimit = PAGE_SIZE; this.renderResults(); });
-    filterLabel.hidden = true;
+    this.resultsToolbar.hidden = true;
+    this.copy = new ButtonComponent(this.resultsToolbar).setButtonText('Copy results').onClick(async () => {
+      try { await activeWindow.navigator.clipboard.writeText(bulkReport(this.items, this.config)); new Notice('Results copied.'); }
+      catch { new Notice('Could not copy results. Keep this window open and try again.'); }
+    });
+    this.copy.buttonEl.hidden = true;
     this.results = this.contentEl.createDiv('tag-match-list tag-match-bulk-results');
     this.results.hidden = true;
     const footer = this.contentEl.createDiv('tag-match-footer');
@@ -152,16 +160,11 @@ export class BulkTagModal extends Modal {
       if (this.running) this.requestStop();
       else this.close();
     });
-    this.copy = new ButtonComponent(footer).setButtonText('Copy results').onClick(async () => {
-      try { await activeWindow.navigator.clipboard.writeText(bulkReport(this.items, this.config)); new Notice('Results copied.'); }
-      catch { new Notice('Could not copy results. Keep this window open and try again.'); }
-    });
-    this.copy.buttonEl.hidden = true;
     this.background = new ButtonComponent(footer).setButtonText('Run in background').onClick(() => this.close());
     this.background.buttonEl.hidden = true;
     this.undo = new ButtonComponent(footer).setButtonText('Undo additions').onClick(() => this.undoAdditions());
     this.undo.buttonEl.hidden = true;
-    this.start = new ButtonComponent(footer).setButtonText('Add recommended tags').setCta().onClick(() => this.run());
+    this.start = new ButtonComponent(footer).setButtonText('Add tags').setCta().onClick(() => this.run());
     this.showScope();
     this.selectionSearch.inputEl.focus();
   }
@@ -197,7 +200,7 @@ export class BulkTagModal extends Modal {
   private refreshSelectionSummary() {
     const count = this.files.length;
     this.selectionCount.setText(`${count.toLocaleString()} ${count === 1 ? 'note' : 'notes'} selected`);
-    this.clear.buttonEl.hidden = !count;
+    this.clear.setDisabled(!count);
     this.selectedView.setButtonText(this.noteTree.selectedOnly ? 'Show all notes' : 'Show selected')
       .setDisabled(!count && !this.noteTree.selectedOnly);
     if (!count && this.noteTree.selectedOnly) this.selectedView.buttonEl.focus();
@@ -209,7 +212,7 @@ export class BulkTagModal extends Modal {
   private updateStartButton() {
     const count = this.files.length;
     this.start.setDisabled(!count || !this.validSettings()).setButtonText(count
-      ? `Add tags to ${count.toLocaleString()} ${count === 1 ? 'note' : 'notes'}` : 'Add recommended tags');
+      ? `Add tags to ${count.toLocaleString()} ${count === 1 ? 'note' : 'notes'}` : 'Add tags');
   }
 
   // Closing can occur while async work is awaiting a provider or vault operation.
@@ -263,7 +266,7 @@ export class BulkTagModal extends Modal {
     this.stop.setButtonText('Stop');
     this.background.buttonEl.hidden = false;
     this.results.hidden = false;
-    this.resultsFilter.parentElement!.hidden = false;
+    this.resultsToolbar.hidden = false;
     this.resultsFilter.disabled = true;
     this.activity.hidden = false;
     this.setStatus(`Preparing ${this.items.length} notes…`);

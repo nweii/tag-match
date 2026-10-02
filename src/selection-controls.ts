@@ -53,7 +53,7 @@ export function renderSelectionControls(container: HTMLElement, config: Config, 
       input.rows = 3;
       input.setAttribute('aria-label', 'Tags');
       input.setAttribute('aria-describedby', only.descEl.id);
-      text.setPlaceholder('#Research, #writing').setValue(config.onlyTags).onChange(value => {
+      text.setPlaceholder('research, writing').setValue(config.onlyTags).onChange(value => {
         let error = '';
         try { if (!parseOnlyTags(value).length) error = 'Enter at least one tag.'; }
         catch (cause) { error = cause instanceof Error ? cause.message : 'Enter valid tag names.'; }
@@ -87,7 +87,7 @@ export function renderSelectionControls(container: HTMLElement, config: Config, 
   new Setting(container).setName('Excluded tags').setClass('tag-match-tag-constraint').addTextArea(text => {
     text.inputEl.rows = 3;
     text.inputEl.setAttribute('aria-label', 'Excluded tags');
-    text.setPlaceholder('#Admin, #work/*').setValue(config.excludedTags).onChange(value => update({ excludedTags: value }));
+    text.setPlaceholder('admin, work/*').setValue(config.excludedTags).onChange(value => update({ excludedTags: value }));
   });
   return () => numbers.every(input => wholeNumber(input.value, 1000000));
 }

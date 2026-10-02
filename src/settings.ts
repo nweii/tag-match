@@ -170,10 +170,10 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     intro.createEl('p', { text: 'Use the command palette or assign hotkeys to:' });
     const commands = intro.createEl('ul');
     const review = commands.createEl('li');
-    review.createEl('strong', { text: 'Review tags for current note' });
+    review.createEl('strong', { text: 'Suggest tags for current note…' });
     review.appendText(' — Choose which matches to add.');
     const apply = commands.createEl('li');
-    apply.createEl('strong', { text: 'Add recommended tags to current note' });
+    apply.createEl('strong', { text: 'Match and add tags to current note' });
     apply.appendText(' — Add the top matches right away, using the limits under “Recommended tags” below.');
     const bulk = commands.createEl('li');
     bulk.createEl('strong', { text: 'Match tags to multiple notes…' });

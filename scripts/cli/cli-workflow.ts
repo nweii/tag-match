@@ -24,7 +24,7 @@ function digest(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-async function noteTarget(path: string): Promise<{ path: string; content: string; note: Note }> {
+export async function noteTarget(path: string): Promise<{ path: string; content: string; note: Note }> {
   if (!path.trim()) throw new Error('Pass a Markdown file with --note PATH.');
   const resolved = await realpath(resolve(path)).catch(() => { throw new Error(`Could not read note: ${path}`); });
   if (extname(resolved).toLowerCase() !== '.md') throw new Error('The --note target must be a Markdown file.');
@@ -66,7 +66,8 @@ export function parseReviewPlan(value: unknown): ApplyReviewPlan {
 }
 
 export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: string[], config: Config,
-  signal = new AbortController().signal): Promise<{ status: 'applied' | 'no-op'; path: string; addedTags: string[] }> {
+  signal = new AbortController().signal,
+  beforeWrite?: (path: string, original: string, written: string) => Promise<void>): Promise<{ status: 'applied' | 'no-op'; path: string; addedTags: string[] }> {
   signal.throwIfAborted();
   if (!Array.isArray(selectedTags) || !selectedTags.every(tag => typeof tag === 'string')) {
     throw new Error('selectedTags must be an array of tag names.');
@@ -87,6 +88,16 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
 
   const resolved = await realpath(resolve(plan.note.path)).catch(() => { throw new Error('Could not read the reviewed note.'); });
   if (resolved !== plan.note.path || extname(resolved).toLowerCase() !== '.md') throw new Error('The reviewed note path no longer matches the plan.');
+  const changed = await writeNoteSnapshot(resolved, plan.note.sha256, current => addTags(current, current, selected, plan.existingTags), signal, beforeWrite);
+  return { status: changed ? 'applied' : 'no-op', path: resolved, addedTags: changed ? selected : [] };
+}
+
+/** Shares the locked, snapshot-checked atomic write between application and undo. */
+export async function writeNoteSnapshot(path: string, expectedHash: string, transform: (content: string) => string,
+  signal: AbortSignal, beforeWrite?: (path: string, original: string, written: string) => Promise<void>): Promise<boolean> {
+  signal.throwIfAborted();
+  const resolved = await realpath(resolve(path));
+  if (resolved !== path || extname(resolved).toLowerCase() !== '.md') throw new Error('The reviewed note path no longer matches the plan.');
   const lockPath = `${resolved}.tag-match.lock`;
   const lock = await open(lockPath, 'wx').catch((error: unknown) => {
     if (record(error) && error.code === 'EEXIST') throw new Error('Another Tag Match process is applying changes to this note.');
@@ -95,9 +106,10 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
   let tempPath: string | undefined;
   try {
     const current = await readFile(resolved, 'utf8');
-    if (digest(current) !== plan.note.sha256) throw new Error('The note changed after analysis. Run review again before applying.');
-    const next = addTags(current, current, selected, plan.existingTags);
-    if (next === current) return { status: 'no-op', path: resolved, addedTags: [] };
+    if (digest(current) !== expectedHash) throw new Error('The note changed after analysis. Run review again before applying.');
+    const next = transform(current);
+    if (next === current) return false;
+    await beforeWrite?.(resolved, current, next);
     signal.throwIfAborted();
     const details = await stat(resolved);
     tempPath = join(dirname(resolved), `.${basename(resolved)}.tag-match-${randomUUID()}.tmp`);
@@ -106,7 +118,7 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
     finally { await temp.close(); }
     signal.throwIfAborted();
     const finalSnapshot = await readFile(resolved, 'utf8');
-    if (digest(finalSnapshot) !== plan.note.sha256) throw new Error('The note changed while tags were being applied. Run review again.');
+    if (digest(finalSnapshot) !== expectedHash) throw new Error('The note changed while tags were being applied. Run review again.');
     signal.throwIfAborted();
     await rename(tempPath, resolved);
     tempPath = undefined;
@@ -115,7 +127,7 @@ export async function applyReviewPlan(plan: ApplyReviewPlan, selectedTags: strin
     await lock.close();
     await unlink(lockPath).catch(() => {});
   }
-  return { status: 'applied', path: resolved, addedTags: selected };
+  return true;
 }
 
 export async function quickApplyFile(path: string, tags: TagCount[], config: Config, transport: Transport,

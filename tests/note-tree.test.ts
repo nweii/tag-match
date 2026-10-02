@@ -160,7 +160,7 @@ test('sidebar presets start filtered and users can add outside notes or recover 
   assert.equal(file('third').checked, true);
   await ui.all('button').find(button => button.textContent === 'Clear selection')!.click!();
   assert.match(ui.textContent, /No selected notes/);
-  assert.equal(ui.all('button').find(button => button.textContent === 'Add recommended tags')!.disabled, true);
+  assert.equal(ui.all('button').find(button => button.textContent === 'Add tags')!.disabled, true);
   await ui.all('button').find(button => button.textContent === 'Show all notes')!.click!();
   check(folder('Inbox'), true);
   assert.match(ui.textContent, /2 notes selected/);

@@ -160,7 +160,7 @@ test('bulk setup requires an explicit scope and directly applies matches without
   const modal = new BulkTagModal(app as never, plugin as never);
   modal.open();
   const ui = controls(modal);
-  const start = ui.all('button').find(button => button.textContent === 'Add recommended tags')!;
+  const start = ui.all('button').find(button => button.textContent === 'Add tags')!;
   assert.equal(start.disabled, true);
   assert.equal(ui.all('button').some(button => button.textContent === 'Select folder'), false);
   const folder = ui.all('input').find(input => input['aria-label'] === 'Inbox, 2 notes')!;

@@ -9,7 +9,7 @@ Tag Match uses Jev through [TypeSafe](https://typesafe.ai/) or [OpenRouter](http
 ## Features
 
 - **Matches your tag system.** Shape which tags fit a note using natural-language definitions and rules.
-- **Fast, low-cost matching.** Decision models like Jev make focused decisions rather than generating prose like a general-purpose LLM. Tag Match uses those per-tag judgments to consider more of your vocabulary quickly and cheaply, while taking the note and your tagging guidance into account.
+- **Fast, low-cost matching.** Decision models like Jev evaluate quickly rather than generating prose like a general-purpose LLM. Tag Match uses those per-tag judgments to consider more of your vocabulary at low cost, while taking the note and your tagging guidance into account.
 - **Fine-grained controls.** Choose how many tags to check and balance the most-used with less-used ones, so newer or forgotten tags still get considered. Exclude tags or branches, set a minimum score and addition limit, then review or apply matches directly.
 - **Use existing tags or a specific set.** Reuse your vault's vocabulary or use "Only these tags" to supply the tags you want considered. Each tag is evaluated independently against each note, so you can apply a specific set wherever it fits.
 - **Bulk tagging.** Select individual notes, folders, or a mix of both. Adjust settings for that batch and keep working while tagging runs in the background. It's easy to check progress and results, and undo additions if needed.
@@ -27,19 +27,19 @@ You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
 
 1. [Install Tag Match from Community plugins](https://community.obsidian.md/plugins/tag-match), or open **Settings → Community plugins → Browse** in Obsidian and search for **Tag Match**. Enable it after installing.
 2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
-3. Open a Markdown note and run **Tag Match: Review tags for current note** to analyze and choose matches before adding them, or **Tag Match: Add recommended tags to current note** to analyze and add them directly.
+3. Open a Markdown note and run **Tag Match: Suggest tags for current note…** to analyze and choose matches before adding them, or **Tag Match: Match and add tags to current note** to analyze and add them directly.
 
 Both commands use your tag selection settings and refuse to apply results if the note has changed.
 
 ### Tag multiple notes
 
-Run **Tag Match: Match tags to multiple notes…**. Expand folders in the note tree and check individual notes or a whole folder, including its subfolders. Folder selections add to the batch; uncheck individual notes to exclude them. Search reveals matching notes and their folders while preserving selections elsewhere. During search, folder checkboxes affect only matching notes. Clearing search restores the folder expansion state. Folders appear before notes; both sort by modified date by default, with creation date and alphabetical sorting in either direction. Folder dates come from their newest or oldest descendant note. You can also select files or folders in Obsidian's file explorer and use **Match tags…** or **Match tags to selected notes…** from their context menu. The dialog opens showing only those selected notes, with their folders expanded. Use **Show all notes** to include more notes from elsewhere, or **Show selected** to inspect the batch before applying tags. **Adjust for this batch** changes selection method, size, mix, minimum score, and the per-note tag limit without changing saved defaults.
+Run **Tag Match: Match tags to multiple notes…**, or use the tag-matching action in the context menu for selected files or folders in Obsidian's file explorer.
 
-Bulk tagging adds recommendations directly. Check your matching settings on individual notes, then check the batch's note count and limits. **Add tags to N notes** starts the batch immediately and uses API credits. Up to three notes are analyzed in parallel, each with its own context and one settings and tag-vocabulary snapshot for the run. A note changed during analysis is skipped; other note failures are reported separately. Use **Run in background**, close the window, or press Escape to keep working in Obsidian while the batch continues. Click its native progress notice or desktop status-bar control, or run **Tag Match: Show bulk tagging progress**, to reopen it. **Stop** cancels pending work; up to three in-flight provider requests may still finish and use credits. Provider-wide failures stop the remaining queue. Results show per-note outcomes, filters for failures or skipped notes, and **Copy results** (no note bodies or API keys).
+Select notes or folders and use **Show selected** to check the batch. **Add tags to N notes** analyzes and adds matches directly. **Adjust for this batch** overrides your defaults for that run.
 
-**Undo additions** restores only notes whose content still exactly matches the completed write; later edits are preserved. Undo can be stopped and continued. Retained recovery snapshots have a memory budget; reaching it stops the remaining queue with instructions to run a smaller batch. **Close** dismisses completed results without another prompt. Undo is held in memory until completed results are closed, the plugin reloads, or Obsidian quits. Obsidian file recovery or a vault backup remains the recovery path after a restart.
+Use **Run in background** to keep working. Reopen progress and results through the notice, desktop status bar, or **Tag Match: Show bulk tagging progress** command. **Stop** cancels remaining work; requests already running may still use credits.
 
-The plugin uses Obsidian APIs available on desktop and mobile. The companion CLI requires a computer with Node.js 22 or later.
+Results show additions, skipped notes, and failures. **Undo additions** restores notes that haven't changed since tagging. Undo remains available until you close completed results, reload the plugin, or quit Obsidian.
 
 ### Manual installation
 
@@ -80,6 +80,10 @@ On desktop, choose **Copy install command** in Tag Match settings and run it in 
 Use **Copy agent instruction** in Tag Match settings to point an agent to the installed guide. The CLI's `--help` documents its commands and inputs. See the [agent guide](./docs/agent-cli.md) for review and direct-apply workflows, and for obtaining the vault's tag inventory.
 
 An agent can combine `preview`, `suggest`, `review`, and `apply`, or use `quick-apply` for direct application. The CLI can run without Obsidian when the caller supplies the tag inventory and existing tags.
+
+The CLI also supports bulk tagging of selected notes and folders. `bulk` defaults to a dry run without API calls or note changes. `--suggest` returns review plans, and `--apply --recovery PATH` adds matches with durable undo. Up to three notes run in parallel, with per-note results and cancellation.
+
+`bulk-undo` previews or restores additions while preserving later edits. Single-note and bulk commands accept per-run overrides, including `--only-tags`, without changing saved settings. See the [agent guide](./docs/agent-cli.md#bulk-tagging) for inputs and examples.
 
 ## Privacy and network access
 

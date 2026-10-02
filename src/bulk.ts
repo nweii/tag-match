@@ -6,9 +6,9 @@ import { ProviderRequestError, suggest, type Progress, type SuggestionResult, ty
 import { resolveProvider } from './provider.ts';
 import { applySuggestions, readNote } from './vault.ts';
 import { addTags } from './document.ts';
+import { MAX_BULK_RECOVERY_CHARACTERS, runBulkQueue, stopsBulkRun } from './bulk-queue.ts';
 
-// Bounds retained original/written strings to about 64 MiB at two bytes per UTF-16 code unit.
-export const MAX_BULK_RECOVERY_CHARACTERS = 32 * 1024 * 1024;
+export { MAX_BULK_RECOVERY_CHARACTERS } from './bulk-queue.ts';
 class BulkRecoveryLimitError extends Error {
   constructor() { super('Undo storage limit reached. Keep or undo completed additions, then tag the remaining notes in a smaller batch.'); }
 }
@@ -37,12 +37,6 @@ function errorMessage(error: unknown): string {
 function cancelled(signal: AbortSignal): boolean {
   // Abort state can change during awaited transport and vault work.
   return signal.aborted;
-}
-
-function stopsBulkRun(error: unknown): boolean {
-  if (error instanceof BulkRecoveryLimitError) return true;
-  if (error instanceof ProviderRequestError) return error.status !== 400 && error.status !== 413 && error.status !== 422;
-  return error instanceof Error && error.cause !== undefined ? stopsBulkRun(error.cause) : false;
 }
 
 function applicationFailure(item: BulkItem, error: unknown): void {
@@ -117,27 +111,12 @@ export async function analyzeBulkItems(app: App, items: BulkItem[], config: Conf
   const provider = resolveProvider(analysisConfig);
   const credentialError = provider.apiKey.trim() ? undefined
     : new ProviderRequestError(`Add your ${provider.label} API key in Tag Match settings.`, 401);
-  let complete = 0;
-  let stopped: string | undefined;
-  // Another worker can halt the run during awaited transport or vault work.
-  const stopReason = () => stopped;
   let recoveryCharacters = 0;
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  if (signal.aborted) abort();
-  signal.addEventListener('abort', abort, { once: true });
-  const workSignal = controller.signal;
-  let next = 0;
-  const worker = async () => {
-    while (next < queued.length) {
-      const item = queued[next++]!;
+  await runBulkQueue(queued, {
+    signal, concurrency,
+    shouldStop: error => error instanceof BulkRecoveryLimitError || stopsBulkRun(error),
+    run: async (item, workSignal) => {
       let reservation = 0;
-      if (cancelled(signal) || stopReason() !== undefined) {
-        item.status = cancelled(signal) ? 'cancelled' : 'skipped';
-        item.message = cancelled(signal) ? 'Cancelled before analysis.' : `Not analyzed because the run stopped. ${stopReason() ?? 'The batch was stopped.'}`;
-        onUpdate(item, ++complete, queued.length);
-        continue;
-      }
       try {
         if (credentialError) throw credentialError;
         item.status = 'analyzing';
@@ -170,32 +149,33 @@ export async function analyzeBulkItems(app: App, items: BulkItem[], config: Conf
             recoveryCharacters += extra;
           }
           await applyBulkItem(app, item, analysisConfig, workSignal);
-          if (stopReason() !== undefined && ['cancelled'].includes(item.status)) {
-            item.status = 'skipped'; item.message = `Not applied because the run stopped. ${stopReason() ?? 'The batch was stopped.'}`;
+          // Another worker can halt the run during awaited transport or vault work.
+          if (['cancelled'].includes(item.status)) workSignal.throwIfAborted();
+        }
+      } finally {
+        // Direct runs retain additions and exact content for undo, rather than every tag judgment and sampled body.
+        if (direct) {
+          item.note = undefined;
+          item.result = undefined;
+          if (item.appliedSnapshot === undefined || item.appliedSnapshot === item.snapshot) {
+            recoveryCharacters -= reservation;
+            item.snapshot = undefined; item.appliedSnapshot = undefined;
           }
         }
-      } catch (error) {
-        item.status = cancelled(signal) ? 'cancelled' : stopReason() !== undefined ? 'skipped' : 'failed';
-        item.message = cancelled(signal) ? 'Cancelled during analysis.' : stopReason() !== undefined
-          ? `Not analyzed because the run stopped. ${stopReason() ?? 'The batch was stopped.'}` : errorMessage(error);
-        if (!cancelled(signal) && stopReason() === undefined && stopsBulkRun(error)) {
-          stopped = item.message;
-          controller.abort();
-        }
       }
-      // Direct runs retain additions and exact content for undo, rather than every tag judgment and sampled body.
-      if (direct) {
-        item.note = undefined;
-        item.result = undefined;
-        if (item.appliedSnapshot === undefined || item.appliedSnapshot === item.snapshot) {
-          recoveryCharacters -= reservation;
-          item.snapshot = undefined; item.appliedSnapshot = undefined;
-        }
-      }
-      onUpdate(item, ++complete, queued.length);
-    }
-  };
-  const workers = Math.min(queued.length, Math.max(1, Math.min(3, Math.floor(concurrency) || 1)));
-  try { await Promise.all(Array.from({ length: workers }, worker)); }
-  finally { signal.removeEventListener('abort', abort); }
+    },
+    onError: (item, error, context) => {
+      const applying = item.status === 'cancelled';
+      item.status = context.cancelled ? 'cancelled' : context.stopped !== undefined ? 'skipped' : 'failed';
+      item.message = context.cancelled ? applying ? 'Cancelled before tags were added.' : 'Cancelled during analysis.'
+        : context.stopped !== undefined ? `${applying ? 'Not applied' : 'Not analyzed'} because the run stopped. ${context.stopped}`
+          : errorMessage(error);
+    },
+    onSkipped: (item, context) => {
+      item.status = context.cancelled ? 'cancelled' : 'skipped';
+      item.message = context.cancelled ? 'Cancelled before analysis.'
+        : `Not analyzed because the run stopped. ${context.stopped ?? 'The batch was stopped.'}`;
+    },
+    onSettled: onUpdate,
+  });
 }

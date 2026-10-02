@@ -124,7 +124,7 @@ test('review evaluates another sample without resending scored tags or losing ma
     { title: 'A very long note title about sampling', body: 'Design work', existingTags: [] }, 'Design work');
   modal.open();
   const content = modal.contentEl as unknown as { textContent: string; all(tag: string): TestControl[] };
-  assert.equal((modal as unknown as { titleEl: TestControl }).titleEl.textContent, 'Review tags');
+  assert.equal((modal as unknown as { titleEl: TestControl }).titleEl.textContent, 'Suggest tags for current note');
   assert.match(content.textContent, /A very long note title about sampling/);
   await content.all('button').find(button => button.textContent === 'Analyze note')?.click?.();
   const first = calls.flat();

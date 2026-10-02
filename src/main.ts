@@ -57,20 +57,20 @@ export default class TagMatchPlugin extends Plugin {
     if (migrated.changed) await this.saveData(persistedConfig(this.settings));
     await this.refreshAgentCliStatus();
     this.addSettingTab(new TagMatchSettingsTab(this.app, this));
-    this.addCommand({ id: 'find-matching-tags', name: 'Review tags for current note',
+    this.addCommand({ id: 'find-matching-tags', name: 'Suggest tags for current note…',
       checkCallback: checking => {
         if (!this.app.workspace.getActiveFile()) return false;
         if (!checking) void this.openReview();
         return true;
       } });
-    this.addCommand({ id: 'add-recommended-tags', name: 'Add recommended tags to current note',
+    this.addCommand({ id: 'add-recommended-tags', name: 'Match and add tags to current note',
       checkCallback: checking => {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== 'md') return false;
         if (!checking) void this.quickApply();
         return true;
       } });
-    this.addRibbonIcon('tags', 'Review tags for current note', () => { void this.openReview(); });
+    this.addRibbonIcon('tags', 'Suggest tags for current note…', () => { void this.openReview(); });
     this.addCommand({ id: 'add-recommended-tags-multiple', name: 'Match tags to multiple notes…',
       callback: () => this.openBulk() });
     this.addCommand({ id: 'show-bulk-progress', name: 'Show bulk tagging progress',

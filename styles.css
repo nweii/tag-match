@@ -1,8 +1,14 @@
 /* Review modal: one spacing rhythm, readable text sizes, and a sticky action bar. Settings styles follow. */
+/* Tagging states share a viewport-bounded shell; expanding controls scrolls the content. */
+.modal.tag-match-dialog { height: min(42rem, 85dvh); overflow: hidden; }
+.tag-match-dialog .modal-header { flex-shrink: 0; }
+.tag-match-dialog .modal-content { min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.tag-match-dialog .modal-content > * { flex-shrink: 0; }
+.tag-match-dialog .tag-match-footer { flex-shrink: 0; margin-top: auto; }
 .tag-match-review { display: flex; flex-direction: column; gap: var(--size-4-4); }
 .tag-match-review [hidden] { display: none; }
 .tag-match-review :where(p) { margin: 0; }
-.tag-match-note-title { margin-top: calc(-1 * var(--size-4-2)); color: var(--text-muted); overflow-wrap: anywhere; }
+.tag-match-note-title { margin-top: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 .tag-match-detail { color: var(--text-muted); }
 
 .tag-match-overview { display: flex; flex-direction: column; gap: var(--size-4-1); padding: var(--size-4-4); border-radius: var(--radius-m); background: var(--background-secondary); }
@@ -87,6 +93,8 @@ label.tag-match-row-unavailable { cursor: default; }
 .tag-match-bulk-file:focus-within .tag-match-bulk-name-short { display: none; }
 .tag-match-bulk-file:focus-within .tag-match-bulk-name-full { display: inline; }
 .tag-match-bulk-summary { font-size: var(--font-ui-small); font-variant-numeric: tabular-nums; }
+.tag-match-bulk-results-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--size-4-2); }
+.tag-match-bulk-results-toolbar button { flex: none; font-size: var(--font-ui-small); }
 .tag-match-bulk-result-filter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--size-4-2); font-size: var(--font-ui-small); }
 .tag-match-bulk-results { height: min(45vh, 24rem); flex-shrink: 0; font-size: var(--font-ui-small); }
 .tag-match-bulk-progress { display: flex; flex-direction: column; gap: var(--size-4-1); font-size: var(--font-ui-small); }

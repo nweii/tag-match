@@ -44,7 +44,7 @@ export class TestElement {
 
 export class FileSystemAdapter { constructor(path = '') { this.path = path; } getBasePath() { return this.path; } }
 export const Platform = { isDesktop: true, isWin: false };
-export class Modal { constructor(app) { this.app = app; this.titleEl = new TestElement(); this.contentEl = new TestElement(); } setTitle(title) { this.titleEl.setText(title); return this; } open() { this.onOpen(); } close() { this.onClose(); } }
+export class Modal { constructor(app) { this.app = app; this.modalEl = new TestElement(); this.titleEl = new TestElement(); this.contentEl = new TestElement(); } setTitle(title) { this.titleEl.setText(title); return this; } open() { this.onOpen(); } close() { this.onClose(); } }
 export class FuzzySuggestModal extends Modal {
   setPlaceholder(value) { this.placeholder = value; }
   open() { FuzzySuggestModal.latest = this; }
