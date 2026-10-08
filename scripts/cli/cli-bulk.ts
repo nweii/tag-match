@@ -163,7 +163,8 @@ function bulkSummary(items: CliBulkItem[]) {
 
 export function bulkOutput(items: CliBulkItem[], config: Config, mode: string, cancelled: boolean, recoveryPath?: string) {
   const provider = resolveProvider(config);
-  const { apiKey: _key, openRouterApiKey: _routerKey, typeSafeSecretId: _secret, openRouterSecretId: _routerSecret, ...settings } = config;
+  const { apiKey: _key, openRouterApiKey: _routerKey, typeSafeSecretId: _secret, openRouterSecretId: _routerSecret,
+    openAiApiKey: _openAiKey, openAiSecretId: _openAiSecret, ...settings } = config;
   const summary = bulkSummary(items);
   return { status: cancelled ? 'cancelled' : summary.failed || summary.skipped ? 'partial' : 'complete', mode,
     provider: provider.label, model: provider.model, settings,

@@ -12,6 +12,10 @@ export function agentCliIdentity(source: string): string | null {
   return source.match(/^\/\/ tag-match-cli-identity: (sha256:[a-f0-9]{64})$/m)?.[1] ?? null;
 }
 
+export function agentCliBuild(source: string): string | null {
+  return source.match(/^\/\/ tag-match-cli-build: (\S+)$/m)?.[1] ?? null;
+}
+
 export function compareVersions(left: string, right: string): number | null {
   const parse = (value: string) => {
     const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
@@ -40,11 +44,14 @@ export function compareVersions(left: string, right: string): number | null {
 }
 
 export function resolveAgentCliStatus(expectedIdentity: string | null, expectedVersion: string, cliSource: string | null,
-  guideInstalled: boolean): AgentCliStatus {
+  guideInstalled: boolean, expectedBuild?: string): AgentCliStatus {
   if (cliSource === null || !guideInstalled) return { kind: 'missing' };
   const version = agentCliVersion(cliSource);
   const identity = agentCliIdentity(cliSource);
-  if (identity && identity === expectedIdentity) return { kind: 'current', version };
+  if (identity && identity === expectedIdentity) {
+    const current = expectedBuild === undefined || (version === expectedVersion && agentCliBuild(cliSource) === expectedBuild);
+    return { kind: current ? 'current' : 'different', version };
+  }
   if (version && (compareVersions(version, expectedVersion) ?? 0) > 0) return { kind: 'newer', version };
   if (!identity || !expectedIdentity) return { kind: 'unknown', version };
   return { kind: 'different', version };

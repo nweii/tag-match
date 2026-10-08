@@ -17,7 +17,7 @@ export default defineConfig([
       },
     },
     rules: {
-      'obsidianmd/ui/sentence-case': ['warn', { brands: ['Jev', 'Markdown', 'Nathan Cheng', 'Tag Match', 'TypeSafe'], acronyms: ['API', 'CLI'] }],
+      'obsidianmd/ui/sentence-case': ['warn', { brands: ['Jev', 'Markdown', 'Nathan Cheng', 'Tag Match', 'TypeSafe', 'OpenAI', 'OpenRouter'], acronyms: ['API', 'CLI'] }],
     },
   },
   {

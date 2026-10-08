@@ -165,7 +165,8 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     const percentageSize = liveDescription('percentage');
     const numberedSize = liveDescription('number');
     const mixCount = liveDescription('mix');
-    const providerUrl = this.plugin.settings.provider === 'typesafe' ? 'https://typesafe.ai' : 'https://openrouter.ai';
+    const providerUrl = this.plugin.settings.provider === 'openai' ? 'https://platform.openai.com'
+      : this.plugin.settings.provider === 'typesafe' ? 'https://typesafe.ai' : 'https://openrouter.ai';
     const intro = createFragment();
     intro.createEl('p', { text: 'Use the command palette or assign hotkeys to:' });
     const commands = intro.createEl('ul');
@@ -185,9 +186,18 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     const connection = createFragment();
     connection.appendText('Connect through ');
     connection.createEl('a', { text: 'TypeSafe', attr: { href: 'https://typesafe.ai' } });
-    connection.appendText(' or ');
+    connection.appendText(', ');
     connection.createEl('a', { text: 'OpenRouter', attr: { href: 'https://openrouter.ai' } });
+    connection.appendText(', or ');
+    connection.createEl('a', { text: 'OpenAI', attr: { href: 'https://platform.openai.com' } });
     connection.appendText('. Each uses its own API key.');
+    const modelDescription = (label: string, href: string) => {
+      const fragment = createFragment();
+      fragment.appendText('A model ID from ');
+      fragment.createEl('a', { text: `${label}’s supported decision models`, attr: { href } });
+      fragment.appendText('.');
+      return fragment;
+    };
     const secretDescription = (id: string, providerName: string) => id && !this.app.secretStorage.getSecret(id)?.trim()
       ? 'Key missing on this device. Re-enter the API key in Obsidian Secrets, then select it here.'
       : id ? 'API keys do not sync between devices.'
@@ -198,6 +208,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       this.plugin.manifest.id, this.plugin.manifest.version, Platform.isWin);
     const cliStatus = this.plugin.agentCliStatus;
     const cliInstalled = cliStatus.kind !== 'missing';
+    const development = this.plugin.manifest.id === 'tag-match-dev';
     const cliLabel = cliInstalled && cliStatus.version ? `CLI ${cliStatus.version}` : 'CLI';
     const comparison = cliStatus.kind === 'missing' ? null
       : cliStatus.version ? compareVersions(cliStatus.version, this.plugin.manifest.version) : null;
@@ -205,6 +216,8 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       ? buildAgentInstruction(agentSetup.guidePath) : null;
     const cliDescription = !agentSetup
       ? 'The optional agent CLI requires Node.js and a terminal on a desktop computer.'
+      : development && cliStatus.kind !== 'current'
+        ? 'Install the matching development CLI with the development build installer.'
       : cliStatus.kind === 'missing'
         ? `Requires Node.js 22 or later. Copy the install command and run it in ${Platform.isWin ? 'PowerShell' : 'a terminal'}. Then check CLI status.`
         : cliStatus.kind === 'current'
@@ -220,13 +233,13 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       cliDescriptionContent.createEl('br');
       cliDescriptionContent.createEl('code', { cls: 'tag-match-cli-path', text: agentSetup.cliPath });
     }
-    const showCliCommand = Boolean(agentSetup && (cliStatus.kind === 'missing'
+    const showCliCommand = Boolean(!development && agentSetup && (cliStatus.kind === 'missing'
       || (cliStatus.kind !== 'current' && cliStatus.kind !== 'newer' && comparison !== null && comparison <= 0)));
     return [
-      { name: 'Tag Match', desc: intro },
+      { name: development ? 'Tag Match Dev' : 'Tag Match', desc: intro },
       { type: 'group', heading: 'Connection and agents', items: [
         { name: 'Connection provider', desc: connection,
-          control: { type: 'dropdown', key: 'provider', options: { typesafe: 'TypeSafe', openrouter: 'OpenRouter' } } },
+          control: { type: 'dropdown', key: 'provider', options: { typesafe: 'TypeSafe', openrouter: 'OpenRouter', openai: 'OpenAI' } } },
         { name: 'TypeSafe API key', desc: secretDescription(this.plugin.settings.typeSafeSecretId, 'TypeSafe'),
           visible: () => this.plugin.settings.provider === 'typesafe', aliases: ['credential', 'token'], render: setting => {
             new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.typeSafeSecretId).onChange(async value => {
@@ -236,6 +249,10 @@ export class TagMatchSettingsTab extends PluginSettingTab {
               setting.setDesc(secretDescription(value, 'TypeSafe'));
             });
           } },
+        { name: 'TypeSafe model', desc: modelDescription('TypeSafe', 'https://docs.typesafe.ai/models'),
+          visible: () => this.plugin.settings.provider === 'typesafe',
+          control: { type: 'text', key: 'model', placeholder: 'jev-latest',
+            validate: value => value.trim() ? undefined : 'Enter a TypeSafe model ID.' } },
         { name: 'OpenRouter API key', desc: secretDescription(this.plugin.settings.openRouterSecretId, 'OpenRouter'),
           visible: () => this.plugin.settings.provider === 'openrouter', aliases: ['credential', 'token'], render: setting => {
             new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.openRouterSecretId).onChange(async value => {
@@ -245,10 +262,23 @@ export class TagMatchSettingsTab extends PluginSettingTab {
               setting.setDesc(secretDescription(value, 'OpenRouter'));
             });
           } },
-        { name: 'OpenRouter model', desc: 'An OpenRouter Decisions API model ID.',
+        { name: 'OpenRouter model', desc: modelDescription('OpenRouter', 'https://openrouter.ai/models?fmt=cards&output_modalities=decisions'),
           visible: () => this.plugin.settings.provider === 'openrouter',
           control: { type: 'text', key: 'openRouterModel', placeholder: 'typesafe/jev-1.13',
             validate: value => value.trim() ? undefined : 'Enter an OpenRouter Decisions API model ID.' } },
+        { name: 'OpenAI API key', desc: secretDescription(this.plugin.settings.openAiSecretId, 'OpenAI'),
+          visible: () => this.plugin.settings.provider === 'openai', aliases: ['credential', 'token'], render: setting => {
+            new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.openAiSecretId).onChange(async value => {
+              this.plugin.settings.openAiSecretId = value;
+              this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
+              await this.plugin.saveSettings();
+              setting.setDesc(secretDescription(value, 'OpenAI'));
+            });
+          } },
+        { name: 'OpenAI model', desc: modelDescription('OpenAI', 'https://developers.openai.com/api/docs/guides/decisions#how-decisions-work'),
+          visible: () => this.plugin.settings.provider === 'openai',
+          control: { type: 'text', key: 'openAiModel', placeholder: 'gpt-6-luna',
+            validate: value => value.trim() ? undefined : 'Enter an OpenAI Decisions API model ID.' } },
         { name: 'Use Tag Match with agents', desc: cliDescriptionContent,
           aliases: ['shared command-line configuration', 'CLI'], render: setting => {
             if (!agentSetup) return;
@@ -378,8 +408,8 @@ export class TagMatchSettingsTab extends PluginSettingTab {
             validate: value => Number.isInteger(value) && value >= 200 && value <= 24000 ? undefined : 'Enter a whole number from 200 to 24,000.' } },
       ] },
       { type: 'group', heading: 'About', items: [
-        { name: 'Tag Match', render: setting => {
-          setting.descEl.appendText(`Version ${this.plugin.manifest.version} · Created by `);
+        { name: development ? 'Tag Match Dev' : 'Tag Match', render: setting => {
+          setting.descEl.appendText(`Version ${this.plugin.manifest.version}${development ? ` · Development build ${this.plugin.buildIdentifier || 'unknown'}` : ''} · Created by `);
           setting.descEl.createEl('a', { text: 'Nathan Cheng', href: 'https://nathancheng.work/' });
           setting.descEl.appendText('.');
         } },

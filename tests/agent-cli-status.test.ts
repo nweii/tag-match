@@ -34,6 +34,14 @@ test('legacy and unreadable identities stay uncertain; missing files stay missin
   assert.deepEqual(resolveAgentCliStatus(identityA, '0.1.2', source('0.1.0', identityA), false), { kind: 'missing' });
 });
 
+test('development companions must match the version and build as well as CLI code', () => {
+  const dev = `${source('0.4.1', identityA)}// tag-match-cli-build: abc1234+\n`;
+  assert.deepEqual(resolveAgentCliStatus(identityA, '0.4.1', dev, true, 'abc1234+'), { kind: 'current', version: '0.4.1' });
+  assert.deepEqual(resolveAgentCliStatus(identityA, '0.4.2', dev, true, 'abc1234+'), { kind: 'different', version: '0.4.1' });
+  assert.deepEqual(resolveAgentCliStatus(identityA, '0.4.1', dev, true, 'def5678'), { kind: 'different', version: '0.4.1' });
+  assert.deepEqual(resolveAgentCliStatus(identityA, '0.4.1', source('0.4.1', identityA), true, 'abc1234+'), { kind: 'different', version: '0.4.1' });
+});
+
 test('version comparison distinguishes prereleases and rejects uncertain versions', () => {
   assert.equal(compareVersions('1.0.0-beta.2', '1.0.0-beta.10'), -1);
   assert.equal(compareVersions('1.0.0', '1.0.0-beta.1'), 1);

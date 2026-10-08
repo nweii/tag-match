@@ -11,8 +11,10 @@ import { BulkTagModal, filesInScope } from './bulk-modal.ts';
 import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
 
 declare const __TAG_MATCH_CLI_IDENTITY__: string;
+declare const __TAG_MATCH_BUILD__: string;
 
 export default class TagMatchPlugin extends Plugin {
+  readonly buildIdentifier = typeof __TAG_MATCH_BUILD__ === 'string' ? __TAG_MATCH_BUILD__ : '';
   declare settings: Config;
   agentCliStatus: AgentCliStatus = { kind: 'missing' };
   private saveQueue: Promise<void> = Promise.resolve();
@@ -35,7 +37,7 @@ export default class TagMatchPlugin extends Plugin {
         requestUrl({ url: endpoint, method: 'POST', headers: { Authorization: `Bearer ${apiKey}` },
           contentType: 'application/json', body: JSON.stringify(request), throw: false }),
         new Promise<never>((_, reject) => {
-          timer = window.setTimeout(() => reject(new Error('The Jev provider timed out after 45 seconds.')), 45000);
+          timer = window.setTimeout(() => reject(new Error('The decision provider timed out after 45 seconds.')), 45000);
           abort = () => reject(new Error('Cancelled.'));
           signal.addEventListener('abort', abort, { once: true });
         }),
@@ -70,7 +72,7 @@ export default class TagMatchPlugin extends Plugin {
         if (!checking) void this.quickApply();
         return true;
       } });
-    this.addRibbonIcon('tags', 'Suggest tags for current note…', () => { void this.openReview(); });
+    this.addRibbonIcon('tags', `${this.manifest.name}: Suggest tags for current note…`, () => { void this.openReview(); });
     this.addCommand({ id: 'add-recommended-tags-multiple', name: 'Match tags to multiple notes…',
       callback: () => this.openBulk() });
     this.addCommand({ id: 'show-bulk-progress', name: 'Show bulk tagging progress',
@@ -81,20 +83,20 @@ export default class TagMatchPlugin extends Plugin {
         return true;
       } });
     if (Platform.isDesktop) {
-      this.bulkStatus = new ButtonComponent(this.addStatusBarItem()).setButtonText('Tag Match')
+      this.bulkStatus = new ButtonComponent(this.addStatusBarItem()).setButtonText(this.manifest.name)
         .setTooltip('Show bulk tagging progress and results').onClick(() => this.retainedBulk()?.open());
       this.bulkStatus.buttonEl.hidden = true;
     }
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
       const files = filesInScope(this.app.vault.getMarkdownFiles(), [file.path || '/']);
       if (!files.length) return;
-      menu.addItem(item => item.setTitle('Match tags…').setIcon('tags')
+      menu.addItem(item => item.setTitle(this.manifest.id === 'tag-match-dev' ? 'Match tags (Dev)…' : 'Match tags…').setIcon('tags')
         .onClick(() => this.openBulk(files)));
     }));
     this.registerEvent(this.app.workspace.on('files-menu', (menu, files) => {
       const selected = filesInScope(this.app.vault.getMarkdownFiles(), files.map(file => file.path || '/'));
       if (!selected.length) return;
-      menu.addItem(item => item.setTitle('Match tags to selected notes…').setIcon('tags')
+      menu.addItem(item => item.setTitle(this.manifest.id === 'tag-match-dev' ? 'Match tags to selected notes (Dev)…' : 'Match tags to selected notes…').setIcon('tags')
         .onClick(() => this.openBulk(selected)));
     }));
   }
@@ -130,14 +132,14 @@ export default class TagMatchPlugin extends Plugin {
     const finished = !run.active;
     if (!this.bulkNotice || this.noticeRun !== run || this.noticeFinished !== finished) {
       this.bulkNotice?.hide();
-      this.bulkNotice = new Notice('Tag Match', 0);
+      this.bulkNotice = new Notice(this.manifest.name, 0);
       this.bulkNotice.messageEl.empty();
       this.bulkNoticeButton = new ButtonComponent(this.bulkNotice.messageEl)
         .setTooltip('Open bulk tagging progress and results').onClick(() => run.open());
       this.bulkNoticeButton.buttonEl.addClass('tag-match-bulk-notice-action');
       this.noticeRun = run; this.noticeFinished = finished;
     }
-    this.bulkNoticeButton!.setButtonText(finished ? 'Tag Match: Batch finished · Open results' : `${run.progressText} · Open progress`);
+    this.bulkNoticeButton!.setButtonText(finished ? `${this.manifest.name}: Batch finished · Open results` : `${run.progressText} · Open progress`);
   }
 
   async refreshAgentCliStatus(): Promise<void> {
@@ -153,7 +155,7 @@ export default class TagMatchPlugin extends Plugin {
       const source = await this.app.vault.adapter.read(cliPath);
       this.agentCliStatus = resolveAgentCliStatus(
         typeof __TAG_MATCH_CLI_IDENTITY__ === 'string' ? __TAG_MATCH_CLI_IDENTITY__ : null,
-        this.manifest.version, source, true);
+        this.manifest.version, source, true, this.manifest.id === 'tag-match-dev' ? this.buildIdentifier : undefined);
     } catch { this.agentCliStatus = { kind: 'unknown', version: null }; }
   }
 

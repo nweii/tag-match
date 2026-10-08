@@ -1,5 +1,6 @@
-// Selects eligible tags and constructs independent Jev judgments with explicit coverage.
+// Selects eligible tags and constructs independent tag judgments with explicit coverage.
 import { type Config, record } from './config.ts';
+import { decisionRequest, type EvaluationRequest, type TagQuestion } from './decision-protocol.ts';
 import { resolveProvider } from './provider.ts';
 
 export interface TagCount { tag: string; count: number }
@@ -15,11 +16,7 @@ export interface CandidatePool {
   total: number; excluded: number; existing: number; eligible: number; frequent: number; discovery: number;
 }
 export interface Judgment { tag: string; probability: number }
-export interface EvaluationRequest {
-  model: string;
-  state: unknown;
-  questions: Record<string, unknown>;
-}
+export type { EvaluationRequest } from './decision-protocol.ts';
 export interface TagBatch { request: EvaluationRequest; tags: string[] }
 
 export function normalizeTag(tag: string): string { return tag.trim().replace(/^#/, ''); }
@@ -194,12 +191,14 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
   if (stateBytes > 28000) throw new Error('Note context is too large. Reduce note characters or tagging guidance.');
   const batches: TagBatch[] = [];
   const model = resolveProvider(config).model;
-  let batch: TagBatch = { request: { model, state, questions: {} }, tags: [] };
-  const emptyBatchBytes = jsonBytes({ state, questions: {} });
-  let batchBytes = emptyBatchBytes;
+  // Clef's serving schema caps questions at 64 (https://developers.cloudflare.com/ai/models/@cf/cloudflare/clef-flash/).
+  // This also applies to the PrimeIntellect Clef route; OpenRouter itself has no universal 64-question cap.
+  const maxQuestions = config.provider === 'openrouter'
+    && ['cloudflare/clef', 'cloudflare/clef-flash'].includes(model) ? 64 : Infinity;
+  let questions: TagQuestion[] = [];
+  let batch: TagBatch = { request: decisionRequest(config.provider, model, state, questions), tags: [] };
   for (const candidate of pool.tags) {
     const question = {
-      type: 'noul',
       instructions: {
         question: 'Should this tag be added to `note`, following `tagging_guidance`? Evaluate this tag independently; several tags may apply.',
         tag: candidate.tag,
@@ -214,21 +213,19 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
     if (stateBytes + questionBytes > 30000) {
       throw new Error(`Context for #${candidate.tag} is too large. Shorten its definition or the note context.`);
     }
-    let id = `tag_${batch.tags.length}`;
-    let entryBytes = jsonBytes(id) + 1 + questionBytes + (batch.tags.length ? 1 : 0);
-    if (batch.tags.length && batchBytes + entryBytes > 55000) {
+    let request = decisionRequest(config.provider, model, state, [...questions, question]);
+    if (batch.tags.length && (batch.tags.length >= maxQuestions || jsonBytes(request) > 55000)) {
       batches.push(batch);
-      batch = { request: { model, state, questions: {} }, tags: [] };
-      batchBytes = emptyBatchBytes;
-      id = 'tag_0';
-      entryBytes = jsonBytes(id) + 1 + questionBytes;
+      questions = [];
+      batch = { request: decisionRequest(config.provider, model, state, questions), tags: [] };
+      request = decisionRequest(config.provider, model, state, [question]);
     }
-    if (batchBytes + entryBytes > 55000) {
+    if (jsonBytes(request) > 55000) {
       throw new Error(`Context for #${candidate.tag} is too large. Shorten its definition or the note context.`);
     }
-    batch.request.questions[id] = question;
+    questions.push(question);
+    batch.request = request;
     batch.tags.push(candidate.tag);
-    batchBytes += entryBytes;
   }
   if (batch.tags.length) batches.push(batch);
   return { batches, truncated: sampled.truncated, sentChars: sampled.text.length };

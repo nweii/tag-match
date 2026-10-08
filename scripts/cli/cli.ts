@@ -1,5 +1,7 @@
-// Exposes shared Jev tag suggestion, review, and application as a JSON-only command-line interface.
+// Exposes shared decision-model tag suggestion, review, and application as a JSON-only command-line interface.
 import { readFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { stdin, stdout, stderr, argv } from 'node:process';
 import { normalizeConfig, record, type Config } from '../../src/config.ts';
 import { suggest, type HttpResponse, type Transport } from '../../src/client.ts';
@@ -10,13 +12,17 @@ import { withOverrides } from './cli-overrides.ts';
 import { bulkTargets, runCliBulk, undoCliBulk } from './cli-bulk.ts';
 
 declare const __TAG_MATCH_VERSION__: string;
+declare const __TAG_MATCH_BUILD__: string;
 export const CLI_VERSION = typeof __TAG_MATCH_VERSION__ === 'string' ? __TAG_MATCH_VERSION__ : '0.0.0-test';
+const CLI_BUILD = typeof __TAG_MATCH_BUILD__ === 'string' ? __TAG_MATCH_BUILD__ : '';
+const CLI_DISPLAY_VERSION = `${CLI_VERSION}${CLI_BUILD ? ` (development build ${CLI_BUILD})` : ''}`;
+const CLI_PLUGIN_ID = CLI_BUILD ? 'tag-match-dev' : 'tag-match';
 
-const HELP = `Usage: tag-match <command> --config PATH
+const HELP = `${CLI_BUILD ? `Tag Match Dev ${CLI_DISPLAY_VERSION}\n\n` : ''}Usage: tag-match <command> --config PATH
 
 Commands:
   preview   Report tag selection without using the network
-  suggest   Evaluate selected tags with the saved Jev provider
+  suggest   Evaluate selected tags with the selected decision provider
   review    Analyze a Markdown file and return a review plan without writing
   apply     Apply explicit selections from a review plan without using the network
   quick-apply  Analyze a Markdown file and add complete recommendations directly
@@ -29,6 +35,9 @@ Per-run options (do not change saved settings):
   --min-score NUMBER  Minimum match probability, 0 through 1
   --max-tags NUMBER   Maximum recommendations per note, 1 through 1000
   JSON input may include "overrides" with tagging settings. Flags take precedence.
+  Provider overrides: {"provider":"openai","openAiModel":"gpt-6-luna"}.
+  Credentials: TYPESAFE_API_KEY, OPENROUTER_API_KEY, or OPENAI_API_KEY for the selected provider,
+  or its saved Obsidian Secret.
   Specific sets override inventory selection and exclusions. Tags do not require a # prefix.
 
 Input for preview and suggest (JSON on stdin):
@@ -95,11 +104,11 @@ Successful output:
   Exit codes: 0 complete, 1 error or partial batch (including skipped notes), 130 cancelled.
 
 Examples:
-  cat input.json | tag-match preview --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat input.json | tag-match suggest --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat tags.json | tag-match review --note /path/to/note.md --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat apply.json | tag-match apply --config /path/to/.obsidian/plugins/tag-match/data.json
-  cat tags.json | tag-match quick-apply --note /path/to/note.md --config /path/to/.obsidian/plugins/tag-match/data.json
+  cat input.json | tag-match preview --config /path/to/.obsidian/plugins/${CLI_PLUGIN_ID}/data.json
+  cat input.json | tag-match suggest --config /path/to/.obsidian/plugins/${CLI_PLUGIN_ID}/data.json
+  cat tags.json | tag-match review --note /path/to/note.md --config /path/to/.obsidian/plugins/${CLI_PLUGIN_ID}/data.json
+  cat apply.json | tag-match apply --config /path/to/.obsidian/plugins/${CLI_PLUGIN_ID}/data.json
+  cat tags.json | tag-match quick-apply --note /path/to/note.md --config /path/to/.obsidian/plugins/${CLI_PLUGIN_ID}/data.json
   cat batch.json | tag-match bulk --config /path/to/data.json --only-tags 'research, writing'
   cat batch.json | tag-match bulk --config /path/to/data.json --apply --recovery /path/to/batch-undo.jsonl`;
 
@@ -220,7 +229,7 @@ export const fetchTransport: Transport = async (request, apiKey, signal, endpoin
 export async function run(args: string[], signal = new AbortController().signal): Promise<unknown> {
   const parsed = parseArgs(args);
   if (parsed.command === 'help') return { help: HELP };
-  if (parsed.command === 'version') return { version: CLI_VERSION };
+  if (parsed.command === 'version') return { version: CLI_VERSION, ...(CLI_BUILD ? { build: CLI_BUILD } : {}) };
   const filter = <T extends { results: { status: string }[] }>(report: T): T => ({ ...report,
     results: report.results.filter(item => parsed.filter === 'all' || item.status === parsed.filter) });
   if (parsed.command === 'bulk-undo') return filter(await undoCliBulk(parsed.recoveryPath, parsed.mode === 'apply', signal));
@@ -259,8 +268,14 @@ export async function run(args: string[], signal = new AbortController().signal)
   return suggest(note, tags, config, fetchTransport, signal);
 }
 
-if (import.meta.url === `file://${argv[1]}`) {
-  if (argv.slice(2).some(arg => arg === '--version' || arg === '-v')) stdout.write(`${CLI_VERSION}\n`);
+function isEntrypoint(): boolean {
+  if (!argv[1]) return false;
+  try { return import.meta.url === pathToFileURL(realpathSync(argv[1])).href; }
+  catch { return false; }
+}
+
+if (isEntrypoint()) {
+  if (argv.slice(2).some(arg => arg === '--version' || arg === '-v')) stdout.write(`${CLI_DISPLAY_VERSION}\n`);
   else if (argv.slice(2).some(arg => arg === '--help' || arg === '-h')) stdout.write(`${HELP}\n`);
   else {
     const controller = new AbortController();

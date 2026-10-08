@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Read `AGENTS.md` when building, installing, testing in a vault, or preparing a release; it defines development/stable separation and versioning.
+
 The README covers user-facing behavior (commands, settings, privacy); `CONTRIBUTING.md` lists the invariants every change must keep. This file covers how the code is put together.
 
 ## Commands

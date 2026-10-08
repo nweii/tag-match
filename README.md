@@ -6,7 +6,9 @@ You can review suggestions for an individual note or add matches directly to one
 
 ## AI models
 
-Tag Match uses AI decision models through [TypeSafe](https://typesafe.ai/) or [OpenRouter](https://openrouter.ai/). Jev is the default. With OpenRouter, you can choose another model compatible with its Decisions API, which returns probabilities rather than generated text.
+Tag Match uses AI decision models through [TypeSafe](https://typesafe.ai/), [OpenRouter](https://openrouter.ai/), or [OpenAI](https://developers.openai.com/api/docs/guides/decisions). Jev via TypeSafe is the default.
+
+Each provider returns per-tag probabilities through a decision-model API. The provider and model are selectable in settings; see [Connection settings](#connection-settings).
 
 Analysis requires an account, an API key, and paid API credits with your chosen provider.
 
@@ -27,11 +29,12 @@ Analysis requires an account, an API key, and paid API credits with your chosen 
 
 ## Getting started
 
-You need Obsidian 1.13.0 or later and a TypeSafe or OpenRouter API key.
+You need Obsidian 1.13.0 or later and a TypeSafe, OpenRouter, or OpenAI API key.
 
 1. [Install Tag Match from Community plugins](https://community.obsidian.md/plugins/tag-match), or open **Settings → Community plugins → Browse** in Obsidian and search for **Tag Match**. Enable it after installing.
-2. In Tag Match settings, choose TypeSafe or OpenRouter and create or select an Obsidian Secret containing its API key. Enter the key on each device you use; Obsidian does not sync secret values.
-3. Open a Markdown note and run **Tag Match: Suggest tags for current note…** to analyze and choose matches before adding them, or **Tag Match: Match and add tags to current note** to analyze and add them directly.
+2. Open **Settings → Tag Match → Connection and agents** and choose a **Connection provider**. In its API key field, create or select an Obsidian Secret containing that provider’s key.
+3. Keep the default model or enter a compatible model ID in the provider’s **model** field. The link beside it lists supported models. Enter the API key on each device you use; Obsidian does not sync secret values.
+4. Open a Markdown note and run **Tag Match: Suggest tags for current note…** to analyze and choose matches before adding them, or **Tag Match: Match and add tags to current note** to analyze and add them directly.
 
 Both commands use your tag selection settings and refuse to apply results if the note has changed.
 
@@ -48,6 +51,20 @@ Results show additions, skipped notes, and failures. **Undo additions** restores
 ### Manual installation
 
 Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nweii/tag-match/releases/latest). Put them in `<vault>/.obsidian/plugins/tag-match/`, reload Obsidian, and enable Tag Match under **Settings → Community plugins**.
+
+## Connection settings
+
+Under **Settings → Tag Match → Connection and agents**, each provider has its own API key and model fields. Switching providers preserves the other providers’ settings.
+
+| Connection provider | Default model | Compatible model IDs |
+| --- | --- | --- |
+| TypeSafe | `jev-latest` | [TypeSafe models and aliases](https://docs.typesafe.ai/models) |
+| OpenRouter | `typesafe/jev-1.13` | [OpenRouter decision models](https://openrouter.ai/models?fmt=cards&output_modalities=decisions) |
+| OpenAI | `gpt-6-luna` | [OpenAI Decisions API models](https://developers.openai.com/api/docs/guides/decisions#how-decisions-work) |
+
+OpenRouter routes requests to a hosting provider. Model availability also depends on your OpenRouter account’s provider and privacy settings. General chat models are not supported by Tag Match’s decision requests.
+
+Model limits and response times differ. Tag Match splits candidate tags into requests and evaluates those requests sequentially for each note. It respects known Clef question limits and retries smaller batches when a provider returns a recognized question-count limit error. Other validation errors stop analysis; incomplete analysis never produces suggestions for that note.
 
 ## How Tag Match chooses tags
 
@@ -91,9 +108,9 @@ The CLI also supports bulk tagging of selected notes and folders. `bulk` default
 
 ## Privacy and network access
 
-Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai` or `openrouter.ai`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it; there is no background vault scan sent to a model.
+Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai`, `openrouter.ai`, or `api.openai.com`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it; there is no background vault scan sent to a model.
 
-API keys stay in Obsidian Secrets on the device where you enter them. The plugin's `data.json` stores only the selected secret's name; synced settings may carry that name to another device, but not the key. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy).
+API keys stay in Obsidian Secrets on the device where you enter them. The plugin's `data.json` stores only the selected secret's name; synced settings may carry that name to another device, but not the key. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy) or [OpenAI's API data policies](https://developers.openai.com/api/docs/guides/your-data).
 
 Copy buttons write to the system clipboard only when clicked; Tag Match never reads it.
 
@@ -101,6 +118,6 @@ The Obsidian plugin operates within your vault. The optional CLI reads its expli
 
 ## About
 
-Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/). It is not affiliated with Obsidian, TypeSafe, or OpenRouter.
+Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/). It is not affiliated with Obsidian, TypeSafe, OpenRouter, or OpenAI.
 
 [Report a bug](https://github.com/nweii/tag-match/issues/new/choose) · [Security policy](./SECURITY.md) · [Third-party notices](./THIRD_PARTY_NOTICES.md) · [Buy me a coffee](https://buymeacoffee.com/nthnwei)

@@ -177,9 +177,11 @@ test('batches pack independent Noul questions up to the byte budget', () => {
   assert.ok(prepared.batches.length > 1);
   assert.equal(prepared.batches.flatMap(batch => batch.tags).length, 120);
   for (const batch of prepared.batches) {
+    assert.ok('state' in batch.request);
     assert.ok(Buffer.byteLength(JSON.stringify({ state: batch.request.state, questions: batch.request.questions })) <= 55_000);
   }
   const first = prepared.batches[0]!;
+  assert.ok('state' in first.request);
   const question = first.request.questions.tag_0 as { type: string; instructions: { definition: string } };
   assert.equal(question.type, 'noul');
   assert.equal(question.instructions.definition, 'meaning '.repeat(120).trim());
@@ -293,4 +295,113 @@ test('later batch failure reports completed coverage and returns no partial resu
     assert.match(error.message, /no partial suggestions were returned/);
     return true;
   });
+});
+
+test('Clef respects the 64-question route limit without dropping candidates', async () => {
+  const tags = Array.from({ length: 500 }, (_, index) => ({ tag: `topic-${index}`, count: 1 }));
+  const settings = config({ provider: 'openrouter', openRouterApiKey: 'test-key', openRouterModel: 'cloudflare/clef', poolMode: 'all' });
+  const seen: string[] = [];
+  const sizes: number[] = [];
+  const result = await suggest(note, tags, settings, async request => {
+    assert.ok('state' in request);
+    const questions = Object.entries(request.questions);
+    sizes.push(questions.length);
+    assert.ok(questions.length <= 64);
+    assert.ok(Buffer.byteLength(JSON.stringify(request)) <= 55000);
+    seen.push(...questions.map(([, value]) => value.instructions.tag));
+    return { status: 200, json: { answers: Object.fromEntries(questions.map(([key]) => [key, { type: 'noul', noul: 0.9 }])) } };
+  });
+  assert.deepEqual(sizes, [64, 64, 64, 64, 64, 64, 64, 52]);
+  assert.equal(new Set(seen).size, 500);
+  assert.equal(result.judgments.length, 500);
+});
+
+ test('OpenRouter Jev is not constrained by Clef question limits', () => {
+  const settings = config({ provider: 'openrouter', openRouterModel: 'typesafe/jev-1.13', poolMode: 'all' });
+  const tags = Array.from({ length: 65 }, (_, i) => ({ tag: `topic-${i}`, count: 1 }));
+  const pool = selectCandidates(tags, [], settings);
+  assert.equal(buildBatches(note, pool, settings).batches.length, 1);
+});
+
+test('explicit upstream question limits split both protocols and preserve tag mapping and usage', async () => {
+  for (const provider of ['openrouter', 'openai'] as const) {
+    const settings = config({ provider, openRouterApiKey: 'key', openAiApiKey: 'key', poolMode: 'all' });
+    const tags = Array.from({ length: 7 }, (_, i) => ({ tag: `topic-${i}`, count: 1 }));
+    const sizes: number[] = [];
+    const progress: number[] = [];
+    const result = await suggest(note, tags, settings, async request => {
+      const questions = Object.values(request.questions);
+      sizes.push(questions.length);
+      if (questions.length > 3) return { status: 422, json: { error: { message: 'HTTP 422: {"detail":[{"type":"too_long","loc":["body","questions"],"msg":"Dictionary should have at most 3 items after validation, not 7"}]}' } } };
+      return { status: 200, json: { usage: { input_tokens: 10, output_tokens: 0 }, answers: 'input' in request
+        ? request.questions.map(q => ({ name: q.name, type: 'predicate', probability: 0.9 }))
+        : Object.fromEntries(Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } };
+    }, undefined, p => progress.push(p.complete));
+    assert.deepEqual(sizes, [7, 3, 3, 1]);
+    assert.deepEqual(result.judgments.map(j => j.tag), tags.map(t => t.tag));
+    assert.deepEqual(progress, [0, 3, 6, 7]);
+    assert.equal(result.batches, 3);
+    assert.equal(result.usage.inputTokens, 30);
+  }
+});
+
+test('unrelated validation errors do not trigger extra paid requests', async () => {
+  let calls = 0;
+  await assert.rejects(suggest(note, [{ tag: 'design', count: 1 }], config(), async () => {
+    calls++;
+    return { status: 422, json: { detail: [{ type: 'too_long', loc: ['body', 'state'], msg: 'Dictionary should have at most 1 items after validation' }] } };
+  }), /no partial suggestions/);
+  assert.equal(calls, 1);
+});
+
+test('a failure after splitting still withholds partial suggestions', async () => {
+  let calls = 0;
+  await assert.rejects(suggest(note, ['a', 'b', 'c'].map(tag => ({ tag, count: 1 })), config({ poolMode: 'all' }), async () => {
+    calls++;
+    if (calls === 1) return { status: 422, json: { detail: [{ type: 'too_long', loc: ['body', 'questions'], msg: 'Dictionary should have at most 2 items after validation' }] } };
+    if (calls === 2) return { status: 200, json: { answers: { tag_0: { type: 'noul', noul: 0.9 }, tag_1: { type: 'noul', noul: 0.8 } } } };
+    return { status: 401, json: {} };
+  }), /Completed 2 of 3 tags; no partial suggestions/);
+  assert.equal(calls, 3);
+});
+
+test('repeatedly shrinking upstream limits stop after three reductions', async () => {
+  let calls = 0;
+  const tags = Array.from({ length: 8 }, (_, i) => ({ tag: `topic-${i}`, count: 1 }));
+  await assert.rejects(suggest(note, tags, config({ poolMode: 'all' }), async request => {
+    calls++;
+    const size = Object.keys(request.questions).length;
+    return { status: 422, json: { detail: [{ type: 'too_long', loc: ['body', 'questions'],
+      msg: `Dictionary should have at most ${size - 1} items after validation` }] } };
+  }), /no partial suggestions/);
+  assert.equal(calls, 4);
+});
+
+test('cancellation after a split response prevents further requests', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  await assert.rejects(suggest(note, ['a', 'b', 'c'].map(tag => ({ tag, count: 1 })),
+    config({ poolMode: 'all' }), async () => {
+      calls++;
+      if (calls === 1) return { status: 422, json: { detail: [{ type: 'too_long', loc: ['body', 'questions'],
+        msg: 'Dictionary should have at most 2 items after validation' }] } };
+      controller.abort();
+      return { status: 200, json: {} };
+    }, controller.signal));
+  assert.equal(calls, 2);
+});
+
+test('nonreducing question limits and unstructured error text are not retried', async () => {
+  for (const json of [
+    { detail: [{ type: 'too_long', loc: ['body', 'questions'], msg: 'Dictionary should have at most 99 items after validation' }] },
+    { error: { message: 'Too many questions. Try fewer.' } },
+    { detail: [{ type: 'too_long', loc: ['body', 'questions'], msg: 'Dictionary should have at most 0 items after validation' }] },
+  ]) {
+    let calls = 0;
+    await assert.rejects(suggest(note, [{ tag: 'design', count: 1 }], config(), async () => {
+      calls++;
+      return { status: 422, json };
+    }), /no partial suggestions/);
+    assert.equal(calls, 1);
+  }
 });

@@ -313,6 +313,7 @@ test('parallel workers overlap note requests within a bound and keep each contex
   const contexts = new Set<string>();
   const progress: number[] = [];
   const transport: Transport = async (request, key, signal, endpoint) => {
+    assert.ok('state' in request);
     contexts.add((request.state as { note: { body: string } }).note.body);
     maximum = Math.max(maximum, ++active);
     await new Promise(resolve => setTimeout(resolve, 5));

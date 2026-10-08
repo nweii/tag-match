@@ -1,4 +1,5 @@
-// Evaluates Jev batches through one resolved provider with bounded retries and isolated credentials.
+// Evaluates decision batches through one resolved provider with bounded retries and isolated credentials.
+import { parseOpenAiJudgments } from './decision-protocol.ts';
 import { type Config, record } from './config.ts';
 import { resolveProvider, TYPE_SAFE_ENDPOINT, type ProviderConfig } from './provider.ts';
 import { type EvaluationRequest, type Judgment, type Note, type TagCount,
@@ -16,6 +17,38 @@ export class ProviderRequestError extends Error {
     this.name = 'ProviderRequestError';
     this.status = status;
   }
+}
+
+// Only recover from an explicit question-count validation error, never an arbitrary 422.
+export function questionLimit(value: unknown, depth = 0): number | undefined {
+  if (depth > 3 || !record(value)) return undefined;
+  if (Array.isArray(value.detail)) {
+    for (const item of value.detail) {
+      if (!record(item) || item.type !== 'too_long' || !Array.isArray(item.loc)
+        || item.loc.join('.') !== 'body.questions' || typeof item.msg !== 'string') continue;
+      const match = item.msg.match(/^(?:Dictionary|List) should have at most (\d+) items after validation/);
+      const limit = match ? Number(match[1]) : undefined;
+      if (limit && Number.isSafeInteger(limit)) return limit;
+    }
+  }
+  if (record(value.error)) return questionLimit(value.error, depth + 1);
+  if (typeof value.message === 'string' && value.message.startsWith('HTTP 422: ')) {
+    try { return questionLimit(JSON.parse(value.message.slice(10)), depth + 1); } catch { /* Unrecognized provider text is not a retry instruction. */ }
+  }
+  return undefined;
+}
+
+class QuestionLimitError extends ProviderRequestError {
+  readonly limit: number;
+  constructor(limit: number, label: string, status: number) {
+    super(`${label} accepts at most ${limit} questions per request.`, status);
+    this.limit = limit;
+  }
+}
+
+function sliceRequest(request: EvaluationRequest, start: number, end: number): EvaluationRequest {
+  if ('input' in request) return { ...request, questions: request.questions.slice(start, end).map((q, i) => ({ ...q, name: `tag_${i}` })) };
+  return { ...request, questions: Object.fromEntries(Object.values(request.questions).slice(start, end).map((q, i) => [`tag_${i}`, q])) };
 }
 
 const pause: Pause = (ms, signal) => new Promise((resolve, reject) => {
@@ -49,7 +82,11 @@ export async function evaluate(request: EvaluationRequest, provider: ProviderCon
       await sleep(Math.max(0, wait), signal);
       continue;
     }
+    const limit = [400, 422].includes(result.status) ? questionLimit(result.json) : undefined;
+    if (limit) throw new QuestionLimitError(limit, provider.label, result.status);
     const messages: Record<number, string> = {
+      400: `${provider.label} rejected the request. Check the model and note context.`,
+      404: `${provider.label} could not find the selected model. Check the model ID and access.`,
       401: `${provider.label} rejected the API key. Check the API key in Tag Match settings, then try again.`,
       402: `${provider.label} requires available credits for this request. Add credits to your ${provider.label} account, then try again.`,
       403: `${provider.label} rejected access to the selected model. Check model access with ${provider.label}, then try again.`,
@@ -87,17 +124,31 @@ export async function suggest(note: Note, inventory: TagCount[], config: Config,
   let outputTokens = 0;
   let usageComplete = true;
   onProgress({ complete: 0, total: pool.tags.length });
-  for (const batch of prepared.batches) {
+  const queue = prepared.batches.map(batch => ({ ...batch, reductions: 0 }));
+  let completedBatches = 0;
+  for (let index = 0; index < queue.length; index++) {
+    const batch = queue[index]!;
     signal.throwIfAborted();
     let response: unknown;
     try {
       response = await evaluate(batch.request, provider, transport, signal);
-      judgments.push(...parseJudgments(response, batch.tags));
+      judgments.push(...(provider.name === 'openai' ? parseOpenAiJudgments(response, batch.tags) : parseJudgments(response, batch.tags)));
     } catch (error) {
       if (signal.aborted) throw error;
+      if (error instanceof QuestionLimitError && error.limit < batch.tags.length && batch.reductions < 3) {
+        const parts = [];
+        for (let start = 0; start < batch.tags.length; start += error.limit) {
+          parts.push({ request: sliceRequest(batch.request, start, start + error.limit),
+            tags: batch.tags.slice(start, start + error.limit), reductions: batch.reductions + 1 });
+        }
+        queue.splice(index, 1, ...parts);
+        index--;
+        continue;
+      }
       const message = error instanceof Error ? error.message : `${provider.label} evaluation failed.`;
       throw new BatchEvaluationError(`${message} Completed ${judgments.length} of ${pool.tags.length} tags; no partial suggestions were returned.`, judgments.length, pool.tags.length, { cause: error });
     }
+    completedBatches++;
     if (record(response) && typeof response.model === 'string') models.add(response.model);
     if (record(response) && record(response.usage)
       && typeof response.usage.input_tokens === 'number' && typeof response.usage.output_tokens === 'number') {
@@ -107,7 +158,7 @@ export async function suggest(note: Note, inventory: TagCount[], config: Config,
     onProgress({ complete: judgments.length, total: pool.tags.length });
   }
   return { pool, judgments: rankJudgments(judgments), recommended: recommendations(judgments, analysisConfig),
-    truncated: prepared.truncated, sentChars: prepared.sentChars, batches: prepared.batches.length,
+    truncated: prepared.truncated, sentChars: prepared.sentChars, batches: completedBatches,
     models: [...models], usage: { inputTokens, outputTokens, complete: usageComplete } };
 }
 

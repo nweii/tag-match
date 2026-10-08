@@ -224,3 +224,28 @@ test('SIGINT returns a cancelled bulk report and preserves undo for completed wr
   assert.equal(undo.code, 0, undo.stderr);
   for (const path of paths) assert.equal(await readFile(path, 'utf8'), 'Body');
 });
+
+
+test('OpenAI CLI provider overrides reach native predicates for suggest, review, apply and bulk', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-openai-cli-'));
+  const configPath = join(directory, 'data.json'); const notePath = join(directory, 'Note.md');
+  await writeFile(configPath, JSON.stringify({ openAiApiKey: 'synthetic-key' }));
+  await writeFile(notePath, 'Design systems');
+  const input = { overrides: { provider: 'openai', poolMode: 'specific', onlyTags: 'design, testing' } };
+  const suggested = await cli(['suggest', '--config', configPath], JSON.stringify({ ...input,
+    note: { title: 'Example', body: 'Design systems', existingTags: [] } }), true);
+  assert.equal(suggested.code, 0, suggested.stderr);
+  assert.deepEqual(output(suggested.stdout).recommended.map(item => item.tag), ['design']);
+  const reviewed = await cli(['review', '--note', notePath, '--config', configPath], JSON.stringify(input), true);
+  assert.equal(reviewed.code, 0, reviewed.stderr);
+  const applied = await cli(['apply', '--config', configPath], JSON.stringify({ ...input,
+    plan: JSON.parse(reviewed.stdout) as unknown, selectedTags: ['design'] }));
+  assert.equal(applied.code, 0, applied.stderr);
+  assert.deepEqual(output(applied.stdout).addedTags, ['design']);
+  await writeFile(notePath, 'Design systems');
+  const bulk = await cli(['bulk', '--config', configPath, '--apply', '--recovery', join(directory, 'undo.jsonl')],
+    JSON.stringify({ ...input, notes: [notePath] }), true);
+  assert.equal(bulk.code, 0, bulk.stderr);
+  assert.equal(output(bulk.stdout).summary.applied, 1);
+  assert.doesNotMatch(bulk.stdout, /synthetic-key/);
+});

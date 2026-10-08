@@ -4,6 +4,18 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-08
+
+### Added
+
+- OpenAI’s Decisions API as a provider option for single-note and bulk tagging, with GPT-6 Luna as its default model.
+- A TypeSafe model field and links to compatible model IDs for every provider.
+
+### Fixed
+
+- Clef requests could exceed its 64-question limit and fail before returning matches. Candidate tags are now split into compatible batches.
+- Recognized provider question-count limit errors now trigger smaller batches with bounded retries, preserving all candidate tags.
+
 ## [0.4.0] - 2026-10-02
 
 ### Added
@@ -25,5 +37,6 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 - Tagging dialogs previously jumped in height as content changed. They now keep a stable height and scroll longer content.
 - Note titles were clipped at the top of the single-note suggestion dialog. They now display fully, including wrapped lines.
 
-[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.1...HEAD
+[0.4.1]: https://github.com/nweii/tag-match/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/nweii/tag-match/compare/0.3.0...0.4.0

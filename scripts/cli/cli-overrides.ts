@@ -3,7 +3,7 @@ import { normalizeConfig, record, type Config } from '../../src/config.ts';
 
 const ranges = { poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
   maxTagsToAdd: [1, 1000], minProbability: [0, 1], maxBodyChars: [200, 24000] } as const;
-const textKeys = ['onlyTags', 'excludedTags', 'guidance', 'definitions', 'model', 'openRouterModel'] as const;
+const textKeys = ['onlyTags', 'excludedTags', 'guidance', 'definitions', 'model', 'openRouterModel', 'openAiModel'] as const;
 
 export function withOverrides(config: Config, value: unknown): Config {
   if (value === undefined) return { ...config };
@@ -12,7 +12,7 @@ export function withOverrides(config: Config, value: unknown): Config {
     if (key === 'poolMode') {
       if (!['auto', 'all', 'percent', 'count', 'minimum', 'specific'].includes(String(setting))) throw new Error('Invalid poolMode override.');
     } else if (key === 'provider') {
-      if (setting !== 'typesafe' && setting !== 'openrouter') throw new Error('Invalid provider override.');
+      if (setting !== 'typesafe' && setting !== 'openrouter' && setting !== 'openai') throw new Error('Invalid provider override.');
     } else if (textKeys.includes(key as typeof textKeys[number])) {
       if (typeof setting !== 'string') throw new Error(`${key} must be text.`);
     } else if (Object.hasOwn(ranges, key)) {

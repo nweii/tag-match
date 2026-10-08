@@ -83,6 +83,7 @@ test('a synced secret reference without a local key prompts for this device', ()
   for (const [provider, reference, name] of [
     ['typesafe', 'typeSafeSecretId', 'TypeSafe API key'],
     ['openrouter', 'openRouterSecretId', 'OpenRouter API key'],
+    ['openai', 'openAiSecretId', 'OpenAI API key'],
   ] as const) {
     const id = `tag-match-${provider}`;
     const unselected = setup(true, 3, 'auto', true, { provider });
@@ -243,6 +244,20 @@ test('mobile settings expose no local path, copy action, or preview', () => {
   assert.equal(renderElement(setting).all('button').length, 0);
   assert.equal(renderElement(setting).all('details').length, 0);
   assert.doesNotMatch(String(definition.desc) + renderElement(setting).textContent, /\/Vault|AGENT-CLI/);
+});
+
+test('development settings identify the build and avoid unpublished release downloads', () => {
+  const { tab, plugin } = setup(true, 3, 'auto', false);
+  plugin.manifest.id = 'tag-match-dev';
+  Object.assign(plugin, { buildIdentifier: 'abc1234+' });
+  const definitions = tab.getSettingDefinitions() as Definition[];
+  const items = definitions.flatMap(item => item.items ?? []);
+  const agent = rendered(tab, items.find(item => item.name === 'Use Tag Match with agents')!);
+  assert.equal(renderElement(agent).all('button').length, 1);
+  assert.equal(renderElement(agent).all('details').length, 0);
+  assert.match(String(items.find(item => item.name === 'Use Tag Match with agents')!.desc), /development build installer/);
+  const about = items.filter(item => item.name === 'Tag Match Dev').at(-1)!;
+  assert.match(renderElement(rendered(tab, about)).textContent, /Version 0\.1\.2 · Development build abc1234\+/);
 });
 
 test('selecting automatic mode considers every tag in a small vocabulary', async () => {

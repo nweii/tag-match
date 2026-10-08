@@ -4,7 +4,9 @@ import { dirname, resolve, sep } from 'node:path';
 import type { Config } from '../../src/config.ts';
 
 export type CredentialProvider = Config['provider'];
-const details = (provider: CredentialProvider) => provider === 'openrouter'
+const details = (provider: CredentialProvider) => provider === 'openai'
+  ? { key: 'openAiApiKey' as const, reference: 'openAiSecretId' as const, env: 'OPENAI_API_KEY', id: 'tag-match-openai' }
+  : provider === 'openrouter'
   ? { key: 'openRouterApiKey' as const, reference: 'openRouterSecretId' as const, env: 'OPENROUTER_API_KEY', id: 'tag-match-openrouter' }
   : { key: 'apiKey' as const, reference: 'typeSafeSecretId' as const, env: 'TYPESAFE_API_KEY', id: 'tag-match-typesafe' };
 

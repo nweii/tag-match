@@ -10,3 +10,17 @@ npm run check
 ```
 
 Pull requests should explain the user-visible behavior, network or privacy effects, and relevant validation. Never commit API keys, private notes, vault data, or generated `data.json` files.
+
+## Development builds
+
+Prepare changes on a development branch and set the target release version with `npm version x.y.z --no-git-tag-version`. `npm run build:dev` produces Tag Match Dev with that version and a source build identifier, separate from the public release artifacts.
+
+Install into a dedicated test vault:
+
+```sh
+npm run dev:install -- --vault "/absolute/path/to/test-vault"
+```
+
+The installer updates `tag-match-dev`, its CLI, and its agent guide together while preserving settings. Use `--config-dir` for a vault with an alternate configuration folder. Reload Tag Match Dev in Obsidian after installing, then verify its version, build identifier, and CLI status. Keep one Tag Match variant enabled at a time when testing both in the same vault.
+
+`npm run build` creates the public release artifacts. See `AGENTS.md` for installation boundaries and release checks.
