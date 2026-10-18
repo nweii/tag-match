@@ -1,7 +1,7 @@
 {
   "id": "tag-match",
   "name": "Tag Match",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "minAppVersion": "1.13.0",
   "description": "Find tags that fit one or more notes with decision models, using your vault's tags or a specific set you provide.",
   "author": "Nathan Cheng",

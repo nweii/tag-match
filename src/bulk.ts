@@ -4,8 +4,7 @@ import type { Config } from './config.ts';
 import type { Note, TagCount } from './core.ts';
 import { ProviderRequestError, suggest, type Progress, type SuggestionResult, type Transport } from './client.ts';
 import { resolveProvider } from './provider.ts';
-import { applySuggestions, readNote } from './vault.ts';
-import { addTags } from './document.ts';
+import { applySuggestions, readNote, type NoteWrite } from './vault.ts';
 import { MAX_BULK_RECOVERY_CHARACTERS, runBulkQueue, stopsBulkRun } from './bulk-queue.ts';
 
 export { MAX_BULK_RECOVERY_CHARACTERS } from './bulk-queue.ts';
@@ -45,7 +44,8 @@ function applicationFailure(item: BulkItem, error: unknown): void {
     || item.message.startsWith('The tag vocabulary or exclusions changed.') ? 'skipped' : 'failed';
 }
 
-export async function applyBulkItem(app: App, item: BulkItem, config: Config, signal: AbortSignal): Promise<void> {
+export async function applyBulkItem(app: App, item: BulkItem, config: Config, signal: AbortSignal,
+  beforeWrite?: (change: NoteWrite) => void): Promise<void> {
   if (item.appliedSnapshot !== undefined || item.status === 'undone') return;
   if (cancelled(signal)) { item.status = 'cancelled'; return; }
   // Failed or incomplete analysis must never expose partial results as writable suggestions.
@@ -53,13 +53,16 @@ export async function applyBulkItem(app: App, item: BulkItem, config: Config, si
     || !['ready', 'unchanged'].includes(item.status)) return;
   if (!item.selected.size) { item.status = 'unchanged'; return; }
   try {
-    const written = await applySuggestions(app, item.file, item.snapshot, [...item.selected],
-      item.note.existingTags, config, signal);
+    const { original, written } = await applySuggestions(app, item.file, item.snapshot, [...item.selected],
+      item.note.existingTags, config, signal, beforeWrite);
+    // Undo restores the current pre-write document, including metadata updated since analysis.
+    item.snapshot = original;
     // process returns the exact committed content, so later edits cannot enter the undo snapshot.
     item.appliedSnapshot = written;
     item.status = written === item.snapshot ? 'unchanged' : 'applied';
     item.message = undefined;
   } catch (error) {
+    if (error instanceof BulkRecoveryLimitError) throw error;
     if (cancelled(signal)) { item.status = 'cancelled'; item.message = 'Cancelled before tags were added.'; }
     else applicationFailure(item, error);
   }
@@ -139,16 +142,14 @@ export async function analyzeBulkItems(app: App, items: BulkItem[], config: Conf
         item.selected = new Set(result.recommended.map(tag => tag.tag));
         item.status = item.selected.size ? 'ready' : 'unchanged';
         if (direct) {
-          if (item.selected.size) {
-            const proposed = addTags(captured.snapshot, captured.snapshot, [...item.selected], captured.note.existingTags);
-            if (recoveryCharacters + proposed.length - captured.snapshot.length > MAX_BULK_RECOVERY_CHARACTERS) {
+          await applyBulkItem(app, item, analysisConfig, workSignal, ({ original, written }) => {
+            const extra = original.length + written.length - reservation;
+            if (recoveryCharacters + extra > MAX_BULK_RECOVERY_CHARACTERS) {
               throw new BulkRecoveryLimitError();
             }
-            const extra = proposed.length - captured.snapshot.length;
             reservation += extra;
             recoveryCharacters += extra;
-          }
-          await applyBulkItem(app, item, analysisConfig, workSignal);
+          });
           // Another worker can halt the run during awaited transport or vault work.
           if (['cancelled'].includes(item.status)) workSignal.throwIfAborted();
         }

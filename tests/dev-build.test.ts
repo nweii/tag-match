@@ -74,6 +74,11 @@ test('development build isolates release artifacts and identifies the canonical 
   assert.doesNotMatch(await readFile(join(root, 'dist', 'tag-match.mjs'), 'utf8'), /tag-match-cli-build:/);
   assert.equal((await stat(join(root, 'dist', 'tag-match-dev', 'tag-match.mjs'))).mode & 0o777, 0o755);
   assert.deepEqual(await Promise.all(releaseFiles.map(file => readFile(join(root, file)))), snapshots);
+  const releasePlugin = await readFile(join(root, 'main.js'), 'utf8');
+  for (const marker of ['copy-diagnostics', 'tag-match-dev:diagnostics']) {
+    assert.equal(plugin.includes(marker), true, `Development plugin includes ${marker}`);
+    assert.equal(releasePlugin.includes(marker), false, `Release plugin excludes ${marker}`);
+  }
   await writeFile(join(root, 'uncommitted.txt'), 'Local change\n');
   const dirty = run(root, ['--build-only']);
   assert.equal(dirty.code, 0, dirty.error);

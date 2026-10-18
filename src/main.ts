@@ -9,9 +9,11 @@ import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
 import { BulkTagModal, filesInScope } from './bulk-modal.ts';
 import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
+import { enableDiagnostics } from './diagnostics.ts';
 
 declare const __TAG_MATCH_CLI_IDENTITY__: string;
 declare const __TAG_MATCH_BUILD__: string;
+declare const __TAG_MATCH_DEVELOPMENT__: boolean;
 
 export default class TagMatchPlugin extends Plugin {
   readonly buildIdentifier = typeof __TAG_MATCH_BUILD__ === 'string' ? __TAG_MATCH_BUILD__ : '';
@@ -53,6 +55,13 @@ export default class TagMatchPlugin extends Plugin {
   };
 
   async onload() {
+    if (typeof __TAG_MATCH_DEVELOPMENT__ === 'boolean' && __TAG_MATCH_DEVELOPMENT__) {
+      const log = enableDiagnostics(this.app, this.buildIdentifier);
+      this.addCommand({ id: 'copy-diagnostics', name: 'Copy local diagnostics', callback: async () => {
+        try { await activeWindow.navigator.clipboard.writeText(log.export()); new Notice('Diagnostics copied.'); }
+        catch { new Notice('Could not copy diagnostics. Try again.'); }
+      } });
+    }
     const loaded = normalizeConfig(await this.loadData());
     const migrated = migrateLegacyCredentials(loaded, this.app.secretStorage);
     this.settings = hydrateCredentials(migrated.config, this.app.secretStorage);

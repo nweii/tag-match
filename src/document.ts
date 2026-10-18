@@ -37,7 +37,10 @@ export function noteMetadata(content: string): { body: string; tags: string[]; d
 }
 
 export function addTags(content: string, expectedContent: string, tags: string[], knownExisting: string[]): string {
-  if (content !== expectedContent) throw new Error('The note changed after analysis. Run tagging again before applying.');
+  // Compare the fields read from the document for analysis, retaining current unrelated frontmatter.
+  if (content !== expectedContent && JSON.stringify(noteMetadata(content)) !== JSON.stringify(noteMetadata(expectedContent))) {
+    throw new Error('The note changed after analysis. Run tagging again before applying.');
+  }
   const parts = splitDocument(content);
   const doc = yamlDocument(parts.frontmatter ?? '');
   const node = doc.get('tags', true);
