@@ -7,6 +7,7 @@ import { DEFAULTS, type Config } from '../src/config.ts';
 import type { Transport } from '../src/client.ts';
 import type { TagCount } from '../src/core.ts';
 import { applySuggestions } from '../src/vault.ts';
+import { noteMetadata } from '../src/document.ts';
 
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', ...values });
 const tags = (): TagCount[] => [{ tag: 'design', count: 3 }, { tag: 'writing', count: 2 }];
@@ -103,6 +104,71 @@ test('changed notes are skipped while independent notes still receive additions'
   assert.match(items[0]!.message!, /note changed after analysis/);
   assert.equal(fixture.data.get('one.md'), 'Edited after analysis started');
   assert.deepEqual(fixture.writes, ['two.md']);
+});
+
+test('metadata changes during analysis permit tagging and undo restores the latest metadata exactly', async () => {
+  for (const direct of [false, true]) {
+    const analyzed = '---\nmodified: 2026-10-17T12:00\naliases: [Example]\n---\nDesign\n';
+    const current = '---\nmodified: 2026-10-18T12:00\naliases:\n  - Example\n---\nDesign\n';
+    const fixture = vaultFixture({ 'one.md': analyzed });
+    const items = createBulkItems(fixture.files);
+    const signal = new AbortController().signal;
+    const transport: Transport = async (request, key, abort, endpoint) => {
+      fixture.data.set('one.md', current);
+      return success(request, key, abort, endpoint);
+    };
+    await analyzeBulkItems(fixture.app, items, config(), tags(), transport, signal, direct, () => {});
+    if (!direct) await applyBulkItem(fixture.app, items[0]!, config(), signal);
+    assert.equal(items[0]!.status, 'applied');
+    assert.match(fixture.data.get('one.md')!, /modified: 2026-10-18T12:00/);
+    assert.deepEqual(noteMetadata(fixture.data.get('one.md')!).tags, ['design', 'writing']);
+    await undoBulkItem(fixture.app, items[0]!);
+    assert.equal(items[0]!.status, 'undone');
+    assert.equal(fixture.data.get('one.md'), current);
+  }
+});
+
+test('real body, description, and tag edits during analysis block apply without writing', async () => {
+  const analyzed = '---\ndescription: Original\ntags: [existing]\n---\nDesign\n';
+  for (const current of [analyzed.replace('Design', 'Edited body'),
+    analyzed.replace('Original', 'Edited description'), analyzed.replace('[existing]', '[existing, added]')]) {
+    const fixture = vaultFixture({ 'one.md': analyzed });
+    const items = createBulkItems(fixture.files);
+    await analyzeBulkItems(fixture.app, items, config(), tags(), async (request, key, signal, endpoint) => {
+      fixture.data.set('one.md', current);
+      return success(request, key, signal, endpoint);
+    }, new AbortController().signal, true, () => {});
+    assert.equal(items[0]!.status, 'skipped');
+    assert.match(items[0]!.message!, /changed after analysis/);
+    assert.equal(fixture.data.get('one.md'), current);
+    assert.deepEqual(fixture.writes, []);
+  }
+});
+
+test('a prior Tag Match write invalidates another analysis of the same note', async () => {
+  const fixture = vaultFixture({ 'one.md': 'Design' });
+  await applySuggestions(fixture.app, fixture.files[0]!, 'Design', ['design'], [], config());
+  const current = fixture.data.get('one.md');
+  await assert.rejects(applySuggestions(fixture.app, fixture.files[0]!, 'Design', ['writing'], [], config()), /changed after analysis/);
+  assert.equal(fixture.data.get('one.md'), current);
+  assert.deepEqual(fixture.writes, ['one.md']);
+});
+
+test('metadata changes cannot exceed the undo budget at the atomic write', async () => {
+  const fixture = vaultFixture({ 'large.md': 'x'.repeat(MAX_BULK_RECOVERY_CHARACTERS / 2 - 512),
+    'one.md': 'Design', 'two.md': 'Writing' });
+  const items = createBulkItems(fixture.files);
+  const current = `---\nstatus: ${'x'.repeat(600)}\n---\nDesign`;
+  let calls = 0;
+  await analyzeBulkItems(fixture.app, items, config(), tags(), (request, key, signal, endpoint) => {
+    if (++calls === 2) fixture.data.set('one.md', current);
+    return success(request, key, signal, endpoint);
+  }, new AbortController().signal, true, () => {});
+  assert.deepEqual(items.map(item => item.status), ['applied', 'failed', 'skipped']);
+  assert.match(items[1]!.message!, /Undo storage limit reached/);
+  assert.equal(calls, 2);
+  assert.equal(fixture.data.get('one.md'), current);
+  assert.deepEqual(fixture.writes, ['large.md']);
 });
 
 test('invalid note metadata is isolated without charging a request for that note', async () => {
