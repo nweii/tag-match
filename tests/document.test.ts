@@ -28,6 +28,37 @@ test('creates frontmatter for a plain note and preserves CRLF', () => {
   assert.match(result, /Body\r\nSecond line/);
 });
 
+test('adds tags when only a leading BOM differs from the analyzed plain note', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const analyzed = `Body\uFEFF text${newline}Second line${newline}`;
+    const current = `\uFEFF${analyzed}`;
+    const written = addTags(current, analyzed, ['design'], []);
+    assert.equal(written, `\uFEFF---${newline}tags:${newline}  - design${newline}---${newline}${analyzed}`);
+    assert.deepEqual(noteMetadata(current), { body: analyzed, tags: [], description: '' });
+    assert.equal(addTags(current, analyzed, [], []), current);
+  }
+});
+
+test('BOM normalization still rejects real body, description, and tag edits', () => {
+  for (const current of ['\uFEFFEdited body\n', '\uFEFFBody', '\uFEFF Body\n', '\uFEFF\uFEFFBody\n']) {
+    assert.throws(() => addTags(current, 'Body\n', ['design'], []), /changed after analysis/);
+  }
+  const analyzed = '---\ndescription: Original\ntags: [existing]\n---\nBody\n';
+  for (const current of [
+    analyzed.replace('Original', 'Edited'),
+    analyzed.replace('[existing]', '[existing, added]'),
+    analyzed.replace('[existing]', '[]'),
+    analyzed.replace('Body', '\uFEFFBody'),
+  ]) assert.throws(() => addTags(`\uFEFF${current}`, analyzed, ['design'], ['existing']), /changed after analysis/);
+});
+
+test('retains an embedded BOM in the body when frontmatter is present', () => {
+  const analyzed = '---\ntags: []\n---\n\uFEFFBody\n';
+  const written = addTags(`\uFEFF${analyzed}`, analyzed, ['design'], []);
+  assert.equal(written, '\uFEFF---\ntags: [ design ]\n---\n\uFEFFBody\n');
+  assert.deepEqual(noteMetadata(written), { body: '\uFEFFBody\n', tags: ['design'], description: '' });
+});
+
 test('refuses stale content and invalid tag properties', () => {
   assert.throws(() => addTags('changed', 'original', ['tag'], []), /changed after analysis/);
   assert.throws(() => noteMetadata('---\ntags: { bad: true }\n---\nBody'), /must contain text tags/);

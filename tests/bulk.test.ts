@@ -106,6 +106,49 @@ test('changed notes are skipped while independent notes still receive additions'
   assert.deepEqual(fixture.writes, ['two.md']);
 });
 
+test('BOM notes apply through stripped reads and undo restores the exact raw note', async () => {
+  for (const direct of [false, true]) for (const newline of ['\n', '\r\n']) {
+    const original = `\uFEFFBody\uFEFF text${newline}Second line${newline}`;
+    const fixture = vaultFixture({ 'one.md': original });
+    fixture.boundary.vault.read = file => Promise.resolve(fixture.data.get(file.path)!.replace(/^\uFEFF/, ''));
+    const items = createBulkItems(fixture.files);
+    const signal = new AbortController().signal;
+    await analyzeBulkItems(fixture.app, items, config(), tags(), success, signal, direct, () => {});
+    if (!direct) {
+      assert.equal(items[0]!.status, 'ready');
+      await applyBulkItem(fixture.app, items[0]!, config(), signal);
+    }
+    assert.equal(items[0]!.status, 'applied');
+    assert.equal(fixture.data.get('one.md'), `\uFEFF---${newline}tags:${newline}  - design${newline}  - writing${newline}---${newline}Body\uFEFF text${newline}Second line${newline}`);
+    await undoBulkItem(fixture.app, items[0]!);
+    assert.equal(items[0]!.status, 'undone');
+    assert.equal(fixture.data.get('one.md'), original);
+  }
+});
+
+test('BOM notes with real intervening edits remain unchanged by tagging', async () => {
+  for (const direct of [false, true]) for (const [original, edited] of [
+    ['\uFEFFBody\n', '\uFEFFEdited body\n'],
+    ['\uFEFF---\ndescription: Original\n---\nBody\n', '\uFEFF---\ndescription: Edited\n---\nBody\n'],
+    ['\uFEFF---\ntags: [existing]\n---\nBody\n', '\uFEFF---\ntags: [existing, added]\n---\nBody\n'],
+  ] as const) {
+    const fixture = vaultFixture({ 'one.md': original });
+    fixture.boundary.vault.read = file => Promise.resolve(fixture.data.get(file.path)!.replace(/^\uFEFF/, ''));
+    const items = createBulkItems(fixture.files);
+    const signal = new AbortController().signal;
+    const transport: Transport = async (request, key, abort, endpoint) => {
+      fixture.data.set('one.md', edited);
+      return success(request, key, abort, endpoint);
+    };
+    await analyzeBulkItems(fixture.app, items, config(), tags(), transport, signal, direct, () => {});
+    if (!direct) await applyBulkItem(fixture.app, items[0]!, config(), signal);
+    assert.equal(items[0]!.status, 'skipped');
+    assert.match(items[0]!.message!, /note changed after analysis/);
+    assert.equal(fixture.data.get('one.md'), edited);
+    assert.deepEqual(fixture.writes, []);
+  }
+});
+
 test('metadata changes during analysis permit tagging and undo restores the latest metadata exactly', async () => {
   for (const direct of [false, true]) {
     const analyzed = '---\nmodified: 2026-10-17T12:00\naliases: [Example]\n---\nDesign\n';
