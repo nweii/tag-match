@@ -264,7 +264,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
           } },
         { name: 'OpenRouter model', desc: modelDescription('OpenRouter', 'https://openrouter.ai/models?fmt=cards&output_modalities=decisions'),
           visible: () => this.plugin.settings.provider === 'openrouter',
-          control: { type: 'text', key: 'openRouterModel', placeholder: 'typesafe/jev-1.13',
+          control: { type: 'text', key: 'openRouterModel', placeholder: '~typesafe/jev-latest',
             validate: value => value.trim() ? undefined : 'Enter an OpenRouter Decisions API model ID.' } },
         { name: 'OpenAI API key', desc: secretDescription(this.plugin.settings.openAiSecretId, 'OpenAI'),
           visible: () => this.plugin.settings.provider === 'openai', aliases: ['credential', 'token'], render: setting => {

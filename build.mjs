@@ -43,7 +43,7 @@ const reference = await build({ absWorkingDir: root, entryPoints: ['scripts/cli/
 const cliIdentity = `sha256:${createHash('sha256').update(reference.outputFiles[0].contents).digest('hex')}`;
 
 await build({ absWorkingDir: root, entryPoints: ['src/main.ts'], outfile: join(output, 'main.js'), bundle: true,
-  format: 'cjs', platform: 'browser', target: 'es2022', external: ['obsidian'],
+  format: 'cjs', platform: 'browser', target: 'es2022', external: ['obsidian'], minifySyntax: true,
   define: { ...channelDefinitions, __TAG_MATCH_CLI_IDENTITY__: JSON.stringify(cliIdentity) },
   banner: { js: `// Tag Match: Obsidian interface for shared tag evaluation.${development ? ` Development build ${version} (${buildStamp}).` : ''}` },
   footer: { js: licenseFooter } });

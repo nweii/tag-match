@@ -59,7 +59,7 @@ Under **Settings → Tag Match → Connection and agents**, each provider has it
 | Connection provider | Default model | Compatible model IDs |
 | --- | --- | --- |
 | TypeSafe | `jev-latest` | [TypeSafe models and aliases](https://docs.typesafe.ai/models) |
-| OpenRouter | `typesafe/jev-1.13` | [OpenRouter decision models](https://openrouter.ai/models?fmt=cards&output_modalities=decisions) |
+| OpenRouter | `~typesafe/jev-latest` | [OpenRouter Jev latest alias](https://openrouter.ai/~typesafe/jev-latest) |
 | OpenAI | `gpt-6-luna` | [OpenAI Decisions API models](https://developers.openai.com/api/docs/guides/decisions#how-decisions-work) |
 
 OpenRouter routes requests to a hosting provider. Model availability also depends on your OpenRouter account’s provider and privacy settings. General chat models are not supported by Tag Match’s decision requests.

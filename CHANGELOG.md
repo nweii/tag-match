@@ -4,6 +4,22 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-18
+
+### Added
+
+- Development builds retain a bounded diagnostic history on the current device, with a command to copy it. Diagnostics report timing and changed fields without note text, filenames, tag values, or credentials.
+
+### Changed
+
+- The default OpenRouter model is `~typesafe/jev-latest`, which follows the latest Jev model. Existing saved model selections are preserved.
+
+### Fixed
+
+- Automatic timestamps and frontmatter formatting could trigger a false note-change warning after analysis. Applying tags preserves unrelated metadata changes while rejecting changes to the analyzed body, description, or tags.
+- Notes without frontmatter and with a leading byte order mark could trigger a false note-change warning. Tagging preserves the marker and continues to reject intervening content edits.
+- Bulk undo retains the exact document from immediately before tags were added, including metadata updated during analysis. Recovery limits are checked before writing.
+
 ## [0.4.1] - 2026-10-08
 
 ### Added
@@ -37,6 +53,7 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 - Tagging dialogs previously jumped in height as content changed. They now keep a stable height and scroll longer content.
 - Note titles were clipped at the top of the single-note suggestion dialog. They now display fully, including wrapped lines.
 
-[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.2...HEAD
+[0.4.2]: https://github.com/nweii/tag-match/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/nweii/tag-match/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/nweii/tag-match/compare/0.3.0...0.4.0

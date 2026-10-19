@@ -28,11 +28,12 @@ One tagging implementation serves two front ends:
 
 Invariants that span files:
 
-- **Stale-note protection.** `readNote` captures a snapshot string. `applySuggestions` → `document.ts#addTags` refuses to write if the file no longer matches it, and also rejects tags that left the vocabulary or became excluded. Any new apply path must go through this.
+- **Stale-note protection.** `readNote` captures a snapshot string. `applySuggestions` → `document.ts#addTags` refuses to write if the analyzed body, description, or frontmatter tags changed. Unrelated frontmatter changes are preserved when adding tags. Apply also rejects tags that left the vocabulary or became excluded. Bulk undo retains the exact document from immediately before the write and refuses to overwrite later changes. Any new apply path must go through this.
 - **Credentials never persist.** `Config` holds keys at runtime, but `persistedConfig` strips them before `saveData`. `data.json` stores only Secret IDs. Call `hydrateCredentials` right before each network run so a changed Secret is used.
 - **One run per note.** `plugin.beginRun`/`endRun` guard concurrent analyses of a file. Closing the review modal aborts its controller.
 - **CLI identity check.** `build.mjs` bundles the CLI twice: once with a fixed version to hash its content, then for real. The plugin embeds that hash (`__TAG_MATCH_CLI_IDENTITY__`) and compares it with the installed `tag-match.mjs` header to decide whether to offer a CLI update. Plugin-only version bumps therefore do not trigger an update prompt.
 - The review modal copies `plugin.settings` when it opens, so its preview and its analysis use one settings snapshot even if settings change in between.
+- Development builds register `Copy local diagnostics` and retain at most 120 capture/apply events through `App.saveLocalStorage`. Events contain random correlation IDs, build and timing data, sizes, and change flags. Never record note text, filenames, tag values, credentials, or raw error messages. Public builds do not enable diagnostics.
 
 ## Testing UI code
 

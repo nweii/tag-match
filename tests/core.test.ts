@@ -9,6 +9,19 @@ import { OPEN_ROUTER_ENDPOINT, resolveProvider, TYPE_SAFE_ENDPOINT } from '../sr
 const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', ...values });
 const note = { title: 'A note', body: 'Design systems and typography.', existingTags: ['existing'] };
 
+test('OpenRouter defaults to its latest Jev alias and preserves explicit model selections', async () => {
+  assert.equal(normalizeConfig({}).openRouterModel, '~typesafe/jev-latest');
+  assert.equal(normalizeConfig({ openRouterModel: ' ' }).openRouterModel, '~typesafe/jev-latest');
+  assert.equal(normalizeConfig({ openRouterModel: 'typesafe/jev-1.13' }).openRouterModel, 'typesafe/jev-1.13');
+  let model: string | undefined;
+  await suggest(note, [{ tag: 'design', count: 1 }], config({ provider: 'openrouter', openRouterApiKey: 'test-key' }),
+    async request => {
+      model = request.model;
+      return { status: 200, json: { answers: { tag_0: { type: 'noul', noul: 0.9 } } } };
+    });
+  assert.equal(model, '~typesafe/jev-latest');
+});
+
 test('provider and malformed-response failures give recovery actions without exposing credentials', async () => {
   const request = buildBatches(note, selectCandidates([{ tag: 'design', count: 1 }], [], config()), config()).batches[0]!.request;
   for (const provider of ['typesafe', 'openrouter'] as const) {
@@ -230,7 +243,7 @@ test('existing configuration migrates to TypeSafe without changing its key or mo
   assert.equal(migrated.apiKey, 'type-safe-key');
   assert.equal(migrated.model, 'jev-custom');
   assert.equal(migrated.openRouterApiKey, '');
-  assert.equal(migrated.openRouterModel, 'typesafe/jev-1.13');
+  assert.equal(migrated.openRouterModel, '~typesafe/jev-latest');
   assert.equal(resolveProvider(migrated).endpoint, TYPE_SAFE_ENDPOINT);
   assert.equal(resolveProvider(migrated).attribution, 'Using jev-custom · TypeSafe');
 });

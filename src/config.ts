@@ -26,7 +26,7 @@ export interface Config {
 
 export const DEFAULTS: Config = {
   provider: 'typesafe', typeSafeSecretId: '', apiKey: '', model: 'jev-latest', openRouterApiKey: '',
-  openRouterSecretId: '', openRouterModel: 'typesafe/jev-1.13',
+  openRouterSecretId: '', openRouterModel: '~typesafe/jev-latest',
   openAiApiKey: '', openAiSecretId: '', openAiModel: 'gpt-6-luna',
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
