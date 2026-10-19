@@ -24,3 +24,9 @@ After installing, verify the loaded plugin ID, target version, build identifier,
 Run `npm run check`. The default `npm run build` produces the public `tag-match` artifacts and companion bundle; development builds leave those outputs untouched.
 
 Verify that release assets use the public plugin ID/name and contain no development stamp. Follow the GitHub release workflow and publish only with Nathan's authorization. Verify published assets and release state before reporting completion. Keep the installed stable plugin on verified published assets.
+
+Prepare the version bump on a release branch. Push its matching version tag to build an attested draft, verify its assets, and obtain publication authorization. Publish the complete release **before merging the manifest version bump into main**. Obsidian reads the public manifest before downloading assets from the matching release tag; a version advertised without its release can fail installation or disappear from distribution.
+
+The required **Release publication** check rejects a version change unless the exact public stable release serves `main.js`, `manifest.json`, and `styles.css` byte-for-byte as built from the candidate branch. Draft releases do not satisfy the check. Run `npm run check:release -- <base commit SHA>` to exercise it locally. An unchanged version requires no publication or network check.
+
+After publication, use the Community author dashboard's **Check for new releases** and confirm the matching review completed. Verify the public listing and desktop update separately; the desktop catalog uses a mirrored index and can lag the website. Do not report a normal Community update as verified from manual file copies or a direct installer call alone.

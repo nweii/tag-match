@@ -31,7 +31,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['scripts/cli/**/*.ts', 'tests/**/*.ts', 'tests/fixtures/*.mjs', 'scripts/*.mjs', 'build.mjs', 'version-bump.mjs'],
+    files: ['scripts/cli/**/*.ts', 'scripts/*.ts', 'tests/**/*.ts', 'tests/fixtures/*.mjs', 'scripts/*.mjs', 'build.mjs', 'version-bump.mjs'],
     languageOptions: { globals: globals.node },
     rules: {
       'obsidianmd/no-nodejs-modules': 'off',
