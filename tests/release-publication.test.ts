@@ -65,6 +65,24 @@ test('manifest promotion fails closed when GitHub or the network is unavailable'
   await assert.rejects(verifyPublishedRelease(version, assets, async () => { throw new Error('Offline'); }), /Offline/);
 });
 
+test('release metadata can authenticate while every asset download remains anonymous', async () => {
+  const publicRequest = requests();
+  const downloads: string[] = [];
+  const request = async (url: string, options?: RequestInit): Promise<Response> => {
+    const authorization = new Headers(options?.headers).get('Authorization');
+    if (url.startsWith('https://api.github.com/')) {
+      if (authorization !== 'Bearer release-check-test-token') return new Response('', { status: 403 });
+    } else {
+      assert.equal(authorization, null, 'Release downloads must work without the workflow token');
+      downloads.push(url);
+    }
+    return publicRequest(url);
+  };
+  await assert.rejects(verifyPublishedRelease(version, assets, request), /HTTP 403/);
+  await verifyPublishedRelease(version, assets, request, 'release-check-test-token');
+  assert.equal(downloads.length, 3);
+});
+
 test('an unchanged manifest needs no build or network access, and an unknown base fails closed', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-release-check-'));
   await writeFile(join(directory, 'manifest.json'), assets['manifest.json']);

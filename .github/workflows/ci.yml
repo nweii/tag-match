@@ -37,4 +37,5 @@ jobs:
       - name: Require publication before changing the public manifest version
         env:
           RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run check:release -- "$RELEASE_BASE_SHA"

@@ -6,13 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 export const releaseFiles = ['main.js', 'manifest.json', 'styles.css'] as const;
 type ReleaseAssets = Record<typeof releaseFiles[number], Uint8Array>;
-type Request = (url: string) => Promise<Response>;
+type Request = (url: string, options?: RequestInit) => Promise<Response>;
 
 export async function verifyPublishedRelease(version: string, assets: ReleaseAssets,
-  request: Request = url => fetch(url, { signal: AbortSignal.timeout(30_000) })): Promise<void> {
+  request: Request = (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(30_000) }),
+  token?: string): Promise<void> {
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('The public manifest must use a stable release version.');
   const repository = 'https://github.com/nweii/tag-match';
-  const response = await request(`https://api.github.com/repos/nweii/tag-match/releases/tags/${version}`);
+  const response = await request(`https://api.github.com/repos/nweii/tag-match/releases/tags/${version}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
   if (!response.ok) throw new Error(`Publish release ${version} with its assets before merging the manifest bump (HTTP ${response.status}).`);
   const release = await response.json() as { tag_name?: unknown; draft?: unknown; prerelease?: unknown; assets?: unknown } | null;
   if (!release || release.tag_name !== version || release.draft !== false || release.prerelease !== false) {
@@ -55,7 +57,7 @@ async function main(): Promise<void> {
     'manifest.json': await readFile('manifest.json'),
     'styles.css': await readFile('styles.css'),
   };
-  await verifyPublishedRelease(manifest.version, assets);
+  await verifyPublishedRelease(manifest.version, assets, undefined, process.env.GITHUB_TOKEN);
   console.log(`Release ${manifest.version} is public and its Obsidian assets match this branch.`);
 }
 
