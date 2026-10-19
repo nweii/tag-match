@@ -29,7 +29,8 @@ function nodeValue(value: unknown): unknown {
 
 export function noteMetadata(content: string): { body: string; tags: string[]; description: string } {
   const parts = splitDocument(content);
-  if (parts.frontmatter === null) return { body: parts.body, tags: [], description: '' };
+  // Obsidian strips the encoding marker on reads, while atomic writes retain it.
+  if (parts.frontmatter === null) return { body: parts.body.replace(/^\uFEFF/, ''), tags: [], description: '' };
   const doc = yamlDocument(parts.frontmatter);
   const description = doc.get('description');
   return { body: parts.body, tags: tagValues(nodeValue(doc.get('tags', true))),

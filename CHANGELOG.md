@@ -17,6 +17,7 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 ### Fixed
 
 - Automatic timestamps and frontmatter formatting could trigger a false note-change warning after analysis. Applying tags preserves unrelated metadata changes while rejecting changes to the analyzed body, description, or tags.
+- Notes without frontmatter and with a leading byte order mark could trigger a false note-change warning. Tagging preserves the marker and continues to reject intervening content edits.
 - Bulk undo retains the exact document from immediately before tags were added, including metadata updated during analysis. Recovery limits are checked before writing.
 
 ## [0.4.1] - 2026-10-08
