@@ -16,6 +16,7 @@
     "test": "node --experimental-strip-types --loader ./tests/fixtures/obsidian-loader.mjs --test tests/*.test.ts",
     "lint": "eslint . && stylelint styles.css",
     "check": "npm run lint && npm test && npm run build && node dist/tag-match.mjs --help",
+    "check:release": "node --experimental-strip-types scripts/check-release.ts",
     "version": "node version-bump.mjs"
   },
   "dependencies": { "yaml": "^2.8.1" },
