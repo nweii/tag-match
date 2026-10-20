@@ -4,17 +4,17 @@ Tag Match finds relevant tags for notes in your Obsidian vault. You can use exis
 
 You can review suggestions for an individual note or add matches directly to one note or a batch.
 
-Generating tags note by note can lead to overlapping labels and a bloated tag vocabulary. Tag Match helps you maintain a consistent vocabulary by working from existing or user-provided tags, leaving tag creation to you. The included assistant prompt helps you review their meanings and refine your tagging rules as your system evolves.
+Generating tags note by note can lead to overlapping labels and a bloated tag vocabulary. Tag Match helps you maintain a consistent vocabulary by working from only existing or provided tags, leaving tag creation to you. The included assistant prompt helps you review their meanings and refine your tagging rules as your system evolves.
 
 ## Features
 
-- **General and tag-specific guidance.** Give the model rules for the whole vault and definitions for individual tags, including when each tag should and shouldn't apply.
-- **Fast, low-cost matching.** Decision models like Jev score each tag independently. Tag Match uses those judgments to consider more of your vocabulary at low cost, taking the note and your tagging guidance into account.
-- **A configurable tag mix.** Balance your most-used tags with a sample of the rest, so newer and less-used tags get considered without checking your entire vocabulary.
-- **Fine-grained controls.** Choose how many tags to check, exclude tags or branches, and set a minimum match score and addition limit. Review matches or apply them directly.
-- **Use existing tags or a specific set.** Reuse your vault's vocabulary or use "Only these tags" to supply the tags you want considered, including tags not yet used in the vault.
-- **Bulk tagging.** Select individual notes, folders, or both. Adjust settings for the batch and keep working while tagging runs in the background, with progress tracking, results, and undo.
-- **Fits existing agent workflows.** Let agents review or apply tags through the optional CLI, using the same provider settings, tagging rules, and tag definitions as the plugin.
+- **General and tag-specific guidance.** Give the model vault-wide rules and tag definitions, including when each tag should or shouldn't apply.
+- **Fast, low-cost matching.** Decision models like Jev score tags independently against your note and guidance, so you can consider more of your vocabulary at low cost.
+- **Configurable tag mix.** Balance your most-used tags with a sample of the rest, so newer and less-used tags get considered without checking your entire vocabulary.
+- **Fine-grained controls.** Choose how many tags to check, exclude tags or branches, and set a minimum match score and add limit. Review matches or apply them without review.
+- **Use existing tags or a specific set.** Reuse your vault's vocabulary or provide a list, including tags not yet used in the vault.
+- **Bulk tagging.** Tag selected notes, folders, or both in the background, with batch-specific settings, progress tracking, results, and undo.
+- **Fits existing agent workflows.** Agents can review or apply tags through the optional CLI using the plugin's provider settings, tagging rules, and tag definitions.
 
 ## Get started
 
