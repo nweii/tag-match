@@ -214,17 +214,35 @@ test('metadata changes cannot exceed the undo budget at the atomic write', async
   assert.deepEqual(fixture.writes, ['large.md']);
 });
 
-test('invalid note metadata is isolated without charging a request for that note', async () => {
-  const fixture = vaultFixture({ 'one.md': '---\ntags: [broken\n---\nDesign', 'two.md': 'Writing' });
+test('bulk tagging preserves both tag list styles, isolates invalid YAML, and undoes exactly', async () => {
+  const originals = {
+    'broken.md': '---\ntags: [broken\n---\nDesign',
+    'bracketed.md': '---\ntags: [design] # Keep this\n---\nDesign notes\n',
+    'list.md': '---\ntags:\n- design\n---\nMore design notes\n',
+  };
+  const fixture = vaultFixture(originals);
   const items = createBulkItems(fixture.files);
   let calls = 0;
   const transport: Transport = async (request, key, signal, endpoint) => {
     calls++; return success(request, key, signal, endpoint);
   };
   await analyzeBulkItems(fixture.app, items, config(), tags(), transport, new AbortController().signal, true, () => {});
-  assert.deepEqual(items.map(item => item.status), ['failed', 'applied']);
-  assert.equal(calls, 1);
-  assert.deepEqual(fixture.writes, ['two.md']);
+  assert.deepEqual(items.map(item => item.status), ['failed', 'applied', 'applied']);
+  assert.match(items[0]!.message!, /invalid YAML/);
+  assert.equal(calls, 2);
+  assert.deepEqual(fixture.writes, ['bracketed.md', 'list.md']);
+  assert.equal(fixture.data.get('broken.md'), originals['broken.md']);
+
+  const bracketed = fixture.data.get('bracketed.md')!;
+  const list = fixture.data.get('list.md')!;
+  assert.match(bracketed, /^tags: *\[/m);
+  assert.match(list, /^tags:\n *- /m);
+  assert.deepEqual(noteMetadata(bracketed).tags, ['design', 'writing']);
+  assert.deepEqual(noteMetadata(list).tags, ['design', 'writing']);
+
+  await undoBulkItem(fixture.app, items[1]!);
+  await undoBulkItem(fixture.app, items[2]!);
+  assert.deepEqual(Object.fromEntries(fixture.data), originals);
 });
 
 test('cancellation retains completed notes and prevents late responses from writing', async () => {
