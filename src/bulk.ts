@@ -1,7 +1,7 @@
 // Runs bounded parallel note tagging from one settings and vocabulary snapshot, with isolated failures and safe undo.
 import type { App, TFile } from 'obsidian';
 import type { Config } from './config.ts';
-import type { Note, TagCount } from './core.ts';
+import { thinNoteMessage, type Note, type TagCount } from './core.ts';
 import { ProviderRequestError, suggest, type Progress, type SuggestionResult, type Transport } from './client.ts';
 import { resolveProvider } from './provider.ts';
 import { applySuggestions, readNote, type NoteWrite } from './vault.ts';
@@ -125,6 +125,8 @@ export async function analyzeBulkItems(app: App, items: BulkItem[], config: Conf
         item.status = 'analyzing';
         const captured = await readNote(app, item.file);
         workSignal.throwIfAborted();
+        const thin = direct ? thinNoteMessage(captured.note, analysisConfig, 'Analyze this note on its own to review suggestions.') : undefined;
+        if (thin) { item.status = 'skipped'; item.message = thin; return; }
         if (direct && recoveryCharacters + captured.snapshot.length * 2 > MAX_BULK_RECOVERY_CHARACTERS) {
           throw new BulkRecoveryLimitError();
         }

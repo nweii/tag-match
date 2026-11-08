@@ -5,6 +5,7 @@ import { hydrateCredentials, migrateLegacyCredentials } from './secret-storage.t
 import { type Transport } from './client.ts';
 import { applySuggestions, inventory, readNote } from './vault.ts';
 import { suggest } from './client.ts';
+import { thinNoteMessage } from './core.ts';
 import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
 import { BulkTagModal, filesInScope } from './bulk-modal.ts';
@@ -212,6 +213,8 @@ export default class TagMatchPlugin extends Plugin {
     try {
       const { note, snapshot } = await readNote(this.app, file);
       const config = this.credentialSnapshot();
+      const thin = thinNoteMessage(note, config, 'Use Analyze note to review suggestions.');
+      if (thin) { progress.hide(); new Notice(thin); return; }
       const result = await suggest(note, inventory(this.app), config, this.transport,
         controller.signal, state => progress.setMessage(`Evaluated ${state.complete} of ${state.total} tags…`));
       const selected = result.recommended.map(item => item.tag);

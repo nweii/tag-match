@@ -163,6 +163,24 @@ export function parseDefinitions(text: string): Map<string, string> {
   return definitions;
 }
 
+function noteWordCount(note: Pick<Note, 'body' | 'description'>): number {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+  let count = 0;
+  for (const text of [note.description ?? '', note.body]) {
+    for (const segment of segmenter.segment(text)) if (segment.isWordLike) count++;
+  }
+  return count;
+}
+
+/** Paths that add tags without review skip short notes, whose suggestions would rest mostly on the title. */
+export function thinNoteMessage(note: Pick<Note, 'body' | 'description'>, config: Pick<Config, 'minWordsWithoutReview'>,
+  reviewAction: string): string | undefined {
+  const minimum = config.minWordsWithoutReview;
+  return minimum && noteWordCount(note) < minimum
+    ? `Fewer than ${minimum} words, too few to add tags without review. ${reviewAction}`
+    : undefined;
+}
+
 export function sampleBody(body: string, maxChars: number): { text: string; truncated: boolean } {
   if (body.length <= maxChars) return { text: body, truncated: false };
   // Preserve evidence from the beginning, middle, and end instead of just the opening.

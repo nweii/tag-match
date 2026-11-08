@@ -11,7 +11,7 @@ import { applyReviewPlan } from '../scripts/cli/cli-workflow.ts';
 import { withOverrides } from '../scripts/cli/cli-overrides.ts';
 import { MAX_BULK_RECOVERY_CHARACTERS } from '../src/bulk-queue.ts';
 
-const config = (patch: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'new/topic, existing', ...patch });
+const config = (patch: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'new/topic, existing', minWordsWithoutReview: 0, ...patch });
 const signal = () => new AbortController().signal;
 const success: Transport = async request => ({ status: 200, json: { answers: Object.fromEntries(
   Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } });
@@ -182,4 +182,16 @@ test('recovery capacity stops before requesting an oversized note or writing any
   assert.deepEqual(output.results.map(item => item.status), ['failed', 'skipped']);
   assert.match(output.results[0]!.message!, /Undo storage limit/);
   assert.equal((await undoCliBulk(f.recoveryPath, false, signal())).total, 0);
+});
+
+test('apply skips notes too short to tag without review before requesting, and suggest still analyzes them', async () => {
+  const f = await fixture(); let calls = 0;
+  const counting: Transport = async (request, ...rest) => { calls++; return success(request, ...rest); };
+  const applied = await runCliBulk(f.targets, [], config({ minWordsWithoutReview: 20 }), counting,
+    options({ mode: 'apply', recoveryPath: f.recoveryPath }));
+  assert.equal(calls, 0); assert.equal(applied.summary.skipped, 3);
+  assert.match(applied.results[0]!.message ?? '', /Fewer than 20 words.*Use review/);
+  assert.equal(await readFile(f.paths[0]!, 'utf8'), f.original);
+  const suggested = await runCliBulk(f.targets, [], config({ minWordsWithoutReview: 20 }), counting, options({ mode: 'suggest' }));
+  assert.equal(suggested.summary.ready, 3);
 });

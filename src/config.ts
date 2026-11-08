@@ -18,6 +18,7 @@ export interface Config {
   maxTagsToAdd: number;
   minProbability: number;
   maxBodyChars: number;
+  minWordsWithoutReview: number;
   onlyTags: string;
   excludedTags: string;
   guidance: string;
@@ -30,7 +31,7 @@ export const DEFAULTS: Config = {
   openAiApiKey: '', openAiSecretId: '', openAiModel: 'gpt-6-luna',
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
-  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
+  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000, minWordsWithoutReview: 20,
   onlyTags: '', excludedTags: '', guidance: '', definitions: '',
 };
 
@@ -60,7 +61,7 @@ export function normalizeConfig(value: unknown): Config {
   const limits = {
     poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
     maxTagsToAdd: [1, 1000],
-    minProbability: [0, 1], maxBodyChars: [200, 24000],
+    minProbability: [0, 1], maxBodyChars: [200, 24000], minWordsWithoutReview: [0, 100000],
   } as const;
   for (const key of Object.keys(limits) as (keyof typeof limits)[]) {
     const number = raw[key];

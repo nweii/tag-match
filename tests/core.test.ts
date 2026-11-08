@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULTS, normalizeConfig, type Config } from '../src/config.ts';
-import { buildBatches, parseJudgments, recommendations, selectCandidates, parseOnlyTags } from '../src/core.ts';
+import { buildBatches, parseJudgments, recommendations, selectCandidates, parseOnlyTags, thinNoteMessage } from '../src/core.ts';
 import { BatchEvaluationError, evaluate, suggest, type Transport } from '../src/client.ts';
 import { OPEN_ROUTER_ENDPOINT, resolveProvider, TYPE_SAFE_ENDPOINT } from '../src/provider.ts';
 
@@ -417,4 +417,17 @@ test('nonreducing question limits and unstructured error text are not retried', 
     }), /no partial suggestions/);
     assert.equal(calls, 1);
   }
+});
+
+test('notes under the word minimum need review, counting description and body but not the title', () => {
+  const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
+  const minimum = { minWordsWithoutReview: 20 };
+  assert.match(thinNoteMessage({ body: words(19) }, minimum, 'Analyze it') ?? '', /Fewer than 20 words.*Analyze it/);
+  assert.equal(thinNoteMessage({ body: words(20) }, minimum, 'Analyze it'), undefined);
+  assert.equal(thinNoteMessage({ description: words(10), body: words(10) }, minimum, 'Analyze it'), undefined);
+  assert.equal(thinNoteMessage({ body: '' }, { minWordsWithoutReview: 0 }, 'Analyze it'), undefined);
+  // Punctuation and Markdown syntax are not words.
+  assert.notEqual(thinNoteMessage({ body: '# — * [] ' + words(19) }, minimum, 'Analyze it'), undefined);
+  assert.equal(normalizeConfig({}).minWordsWithoutReview, 20);
+  assert.equal(normalizeConfig({ minWordsWithoutReview: -5 }).minWordsWithoutReview, 0);
 });
