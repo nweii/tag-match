@@ -5,7 +5,7 @@ import { basename, extname, resolve } from 'node:path';
 import { record, type Config } from '../../src/config.ts';
 import { buildBatches, normalizeTag, noteSeed, selectCandidates, type TagCount } from '../../src/core.ts';
 import { suggest, type Transport, type Progress } from '../../src/client.ts';
-import { resolveProvider } from '../../src/provider.ts';
+import { PROVIDERS, resolveProvider } from '../../src/provider.ts';
 import { MAX_BULK_RECOVERY_CHARACTERS, runBulkQueue, stopsBulkRun } from '../../src/bulk-queue.ts';
 import { applyReviewPlan, noteTarget, writeNoteSnapshot, type ReviewPlan } from './cli-workflow.ts';
 
@@ -163,8 +163,8 @@ function bulkSummary(items: CliBulkItem[]) {
 
 export function bulkOutput(items: CliBulkItem[], config: Config, mode: string, cancelled: boolean, recoveryPath?: string) {
   const provider = resolveProvider(config);
-  const { apiKey: _key, openRouterApiKey: _routerKey, typeSafeSecretId: _secret, openRouterSecretId: _routerSecret,
-    openAiApiKey: _openAiKey, openAiSecretId: _openAiSecret, ...settings } = config;
+  const settings: Partial<Config> = { ...config };
+  for (const spec of Object.values(PROVIDERS)) { delete settings[spec.keyField]; delete settings[spec.secretField]; }
   const summary = bulkSummary(items);
   return { status: cancelled ? 'cancelled' : summary.failed || summary.skipped ? 'partial' : 'complete', mode,
     provider: provider.label, model: provider.model, settings,

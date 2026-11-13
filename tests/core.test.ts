@@ -265,8 +265,8 @@ test('OpenRouter routing uses only its key, endpoint, and pinned Decisions model
   assert.equal(resolveProvider(openRouter).attribution, 'Using typesafe/jev-1.13 · OpenRouter');
   const inventory = Array.from({ length: 41 }, (_, index) => ({ tag: `design-${index}`, count: 41 - index }));
   const result = await suggest(note, inventory, openRouter,
-    async (request, key, _signal, endpoint) => {
-      seen.keys.push(key); seen.endpoints.push(endpoint); seen.models.push(request.model);
+    async (request, headers, _signal, endpoint) => {
+      seen.keys.push(headers.Authorization!.replace('Bearer ', '')); seen.endpoints.push(endpoint); seen.models.push(request.model);
       // Changing the live object after the first batch must not switch provider details mid-analysis.
       openRouter.provider = 'typesafe'; openRouter.openRouterApiKey = 'changed-after-start';
       return { status: 200, json: { id: 'decision-1', provider: 'OpenRouter', model: request.model,
@@ -346,7 +346,7 @@ test('explicit upstream question limits split both protocols and preserve tag ma
       const questions = Object.values(request.questions);
       sizes.push(questions.length);
       if (questions.length > 3) return { status: 422, json: { error: { message: 'HTTP 422: {"detail":[{"type":"too_long","loc":["body","questions"],"msg":"Dictionary should have at most 3 items after validation, not 7"}]}' } } };
-      return { status: 200, json: { usage: { input_tokens: 10, output_tokens: 0 }, answers: 'input' in request
+      return { status: 200, json: { usage: { input_tokens: 10, output_tokens: 0 }, answers: Array.isArray(request.questions)
         ? request.questions.map(q => ({ name: q.name, type: 'predicate', probability: 0.9 }))
         : Object.fromEntries(Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } };
     }, undefined, p => progress.push(p.complete));

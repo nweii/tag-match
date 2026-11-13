@@ -1,6 +1,10 @@
 // Defines the shared settings used by Obsidian and the CLI, including validation.
+import { PROVIDERS } from './provider.ts';
+
+export const PROVIDER_NAMES = ['typesafe', 'openrouter', 'openai', 'gemini'] as const;
+
 export interface Config {
-  provider: 'typesafe' | 'openrouter' | 'openai';
+  provider: typeof PROVIDER_NAMES[number];
   typeSafeSecretId: string;
   apiKey: string;
   model: string;
@@ -10,6 +14,9 @@ export interface Config {
   openAiApiKey: string;
   openAiSecretId: string;
   openAiModel: string;
+  geminiApiKey: string;
+  geminiSecretId: string;
+  geminiModel: string;
   poolMode: 'auto' | 'percent' | 'count' | 'minimum' | 'all' | 'specific';
   poolPercent: number;
   poolCount: number;
@@ -28,6 +35,7 @@ export const DEFAULTS: Config = {
   provider: 'typesafe', typeSafeSecretId: '', apiKey: '', model: 'jev-latest', openRouterApiKey: '',
   openRouterSecretId: '', openRouterModel: '~typesafe/jev-latest',
   openAiApiKey: '', openAiSecretId: '', openAiModel: 'gpt-6-luna',
+  geminiApiKey: '', geminiSecretId: '', geminiModel: 'gemini-decision-1',
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
   maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
@@ -41,19 +49,16 @@ export function record(value: unknown): value is Record<string, unknown> {
 export function normalizeConfig(value: unknown): Config {
   const raw = record(value) ? value : {};
   const result = { ...DEFAULTS };
-  for (const key of ['typeSafeSecretId', 'apiKey', 'model', 'openRouterApiKey', 'openRouterSecretId', 'openRouterModel', 'openAiApiKey', 'openAiSecretId', 'openAiModel', 'onlyTags', 'excludedTags', 'guidance', 'definitions'] as const) {
+  for (const key of ['onlyTags', 'excludedTags', 'guidance', 'definitions'] as const) {
     if (typeof raw[key] === 'string') result[key] = raw[key];
   }
-  result.apiKey = result.apiKey.trim();
-  result.typeSafeSecretId = result.typeSafeSecretId.trim();
-  result.model = result.model.trim() || DEFAULTS.model;
-  result.openRouterApiKey = result.openRouterApiKey.trim();
-  result.openRouterSecretId = result.openRouterSecretId.trim();
-  result.openRouterModel = result.openRouterModel.trim() || DEFAULTS.openRouterModel;
-  result.openAiApiKey = result.openAiApiKey.trim();
-  result.openAiSecretId = result.openAiSecretId.trim();
-  result.openAiModel = result.openAiModel.trim() || DEFAULTS.openAiModel;
-  if (raw.provider === 'typesafe' || raw.provider === 'openrouter' || raw.provider === 'openai') result.provider = raw.provider;
+  for (const spec of Object.values(PROVIDERS)) {
+    for (const key of [spec.keyField, spec.secretField, spec.modelField]) {
+      if (typeof raw[key] === 'string') result[key] = raw[key].trim();
+    }
+    result[spec.modelField] ||= DEFAULTS[spec.modelField];
+  }
+  if (PROVIDER_NAMES.includes(raw.provider as Config['provider'])) result.provider = raw.provider as Config['provider'];
   if (raw.poolMode === 'auto' || raw.poolMode === 'percent' || raw.poolMode === 'count' || raw.poolMode === 'minimum' || raw.poolMode === 'all' || raw.poolMode === 'specific') {
     result.poolMode = raw.poolMode;
   }
@@ -71,12 +76,12 @@ export function normalizeConfig(value: unknown): Config {
   return result;
 }
 
-export type PersistedConfig = Omit<Config, 'apiKey' | 'openRouterApiKey' | 'openAiApiKey'>
-  & Partial<Pick<Config, 'apiKey' | 'openRouterApiKey' | 'openAiApiKey'>>;
+type KeyField = 'apiKey' | 'openRouterApiKey' | 'openAiApiKey' | 'geminiApiKey';
+export type PersistedConfig = Omit<Config, KeyField> & Partial<Pick<Config, KeyField>>;
 
 export function persistedConfig(config: Config): PersistedConfig {
   const normalized = normalizeConfig(config);
-  const { apiKey, openRouterApiKey, openAiApiKey: _openAiApiKey, ...saved } = normalized;
+  const { apiKey, openRouterApiKey, openAiApiKey: _openAiApiKey, geminiApiKey: _geminiApiKey, ...saved } = normalized;
   return {
     ...saved,
     ...(!normalized.typeSafeSecretId && apiKey ? { apiKey } : {}),

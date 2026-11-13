@@ -1,10 +1,10 @@
 // Defines searchable native Obsidian settings for candidate coverage and tagging conventions.
-import { type App, FileSystemAdapter, Modal, Notice, Platform, PluginSettingTab, SearchComponent, SecretComponent, SliderComponent, type SettingDefinitionItem } from 'obsidian';
+import { type App, FileSystemAdapter, Modal, Notice, Platform, PluginSettingTab, SearchComponent, SecretComponent, type Setting, SliderComponent, type SettingDefinitionItem } from 'obsidian';
 import type TagMatchPlugin from './main.ts';
-import { type Config, normalizeConfig } from './config.ts';
+import { type Config, DEFAULTS, normalizeConfig, PROVIDER_NAMES } from './config.ts';
 import { selectCandidates, parseDefinitions, parseOnlyTags, normalizeTag, tagKey, type CandidatePool, type TagCount } from './core.ts';
 import { inventory } from './vault.ts';
-import { resolveProvider } from './provider.ts';
+import { PROVIDERS, resolveProvider } from './provider.ts';
 import { type AgentCliStatus, buildAgentInstruction, compareVersions, resolveAgentSetup } from './agent-instruction.ts';
 import { hydrateCredentials } from './secret-storage.ts';
 import { PAGE_SIZE, renderInspectionRows } from './tag-list.ts';
@@ -165,8 +165,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     const percentageSize = liveDescription('percentage');
     const numberedSize = liveDescription('number');
     const mixCount = liveDescription('mix');
-    const providerUrl = this.plugin.settings.provider === 'openai' ? 'https://platform.openai.com'
-      : this.plugin.settings.provider === 'typesafe' ? 'https://typesafe.ai' : 'https://openrouter.ai';
+    const providerUrl = PROVIDERS[this.plugin.settings.provider].site;
     const intro = createFragment();
     intro.createEl('p', { text: 'Use the command palette or assign hotkeys to:' });
     const commands = intro.createEl('ul');
@@ -185,11 +184,10 @@ export class TagMatchSettingsTab extends PluginSettingTab {
     disclosure.appendText(` using ${provider.model}.`);
     const connection = createFragment();
     connection.appendText('Connect through ');
-    connection.createEl('a', { text: 'TypeSafe', attr: { href: 'https://typesafe.ai' } });
-    connection.appendText(', ');
-    connection.createEl('a', { text: 'OpenRouter', attr: { href: 'https://openrouter.ai' } });
-    connection.appendText(', or ');
-    connection.createEl('a', { text: 'OpenAI', attr: { href: 'https://platform.openai.com' } });
+    Object.values(PROVIDERS).forEach((spec, index, all) => {
+      if (index) connection.appendText(index === all.length - 1 ? ', or ' : ', ');
+      connection.createEl('a', { text: spec.label, attr: { href: spec.site } });
+    });
     connection.appendText('. Each uses its own API key.');
     const modelDescription = (label: string, href: string) => {
       const fragment = createFragment();
@@ -239,46 +237,25 @@ export class TagMatchSettingsTab extends PluginSettingTab {
       { name: development ? 'Tag Match Dev' : 'Tag Match', desc: intro },
       { type: 'group', heading: 'Connection and agents', items: [
         { name: 'Connection provider', desc: connection,
-          control: { type: 'dropdown', key: 'provider', options: { typesafe: 'TypeSafe', openrouter: 'OpenRouter', openai: 'OpenAI' } } },
-        { name: 'TypeSafe API key', desc: secretDescription(this.plugin.settings.typeSafeSecretId, 'TypeSafe'),
-          visible: () => this.plugin.settings.provider === 'typesafe', aliases: ['credential', 'token'], render: setting => {
-            new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.typeSafeSecretId).onChange(async value => {
-              this.plugin.settings.typeSafeSecretId = value;
-              this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
-              await this.plugin.saveSettings();
-              setting.setDesc(secretDescription(value, 'TypeSafe'));
-            });
-          } },
-        { name: 'TypeSafe model', desc: modelDescription('TypeSafe', 'https://docs.typesafe.ai/models'),
-          visible: () => this.plugin.settings.provider === 'typesafe',
-          control: { type: 'text', key: 'model', placeholder: 'jev-latest',
-            validate: value => value.trim() ? undefined : 'Enter a TypeSafe model ID.' } },
-        { name: 'OpenRouter API key', desc: secretDescription(this.plugin.settings.openRouterSecretId, 'OpenRouter'),
-          visible: () => this.plugin.settings.provider === 'openrouter', aliases: ['credential', 'token'], render: setting => {
-            new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.openRouterSecretId).onChange(async value => {
-              this.plugin.settings.openRouterSecretId = value;
-              this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
-              await this.plugin.saveSettings();
-              setting.setDesc(secretDescription(value, 'OpenRouter'));
-            });
-          } },
-        { name: 'OpenRouter model', desc: modelDescription('OpenRouter', 'https://openrouter.ai/models?fmt=cards&output_modalities=decisions'),
-          visible: () => this.plugin.settings.provider === 'openrouter',
-          control: { type: 'text', key: 'openRouterModel', placeholder: '~typesafe/jev-latest',
-            validate: value => value.trim() ? undefined : 'Enter an OpenRouter Decisions API model ID.' } },
-        { name: 'OpenAI API key', desc: secretDescription(this.plugin.settings.openAiSecretId, 'OpenAI'),
-          visible: () => this.plugin.settings.provider === 'openai', aliases: ['credential', 'token'], render: setting => {
-            new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings.openAiSecretId).onChange(async value => {
-              this.plugin.settings.openAiSecretId = value;
-              this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
-              await this.plugin.saveSettings();
-              setting.setDesc(secretDescription(value, 'OpenAI'));
-            });
-          } },
-        { name: 'OpenAI model', desc: modelDescription('OpenAI', 'https://developers.openai.com/api/docs/guides/decisions#how-decisions-work'),
-          visible: () => this.plugin.settings.provider === 'openai',
-          control: { type: 'text', key: 'openAiModel', placeholder: 'gpt-6-luna',
-            validate: value => value.trim() ? undefined : 'Enter an OpenAI Decisions API model ID.' } },
+          control: { type: 'dropdown', key: 'provider', options: Object.fromEntries(PROVIDER_NAMES.map(name => [name, PROVIDERS[name].label])) } },
+        ...PROVIDER_NAMES.flatMap(name => {
+          const spec = PROVIDERS[name];
+          const visible = () => this.plugin.settings.provider === name;
+          return [
+            { name: `${spec.label} API key`, desc: secretDescription(this.plugin.settings[spec.secretField], spec.label),
+              visible, aliases: ['credential', 'token'], render: (setting: Setting) => {
+                new SecretComponent(this.app, setting.controlEl).setValue(this.plugin.settings[spec.secretField]).onChange(async value => {
+                  this.plugin.settings[spec.secretField] = value;
+                  this.plugin.settings = hydrateCredentials(this.plugin.settings, this.app.secretStorage);
+                  await this.plugin.saveSettings();
+                  setting.setDesc(secretDescription(value, spec.label));
+                });
+              } },
+            { name: `${spec.label} model`, desc: modelDescription(spec.label, spec.modelsUrl), visible,
+              control: { type: 'text' as const, key: spec.modelField, placeholder: DEFAULTS[spec.modelField],
+                validate: (value: string) => value.trim() ? undefined : `Enter a model ID for ${spec.label}.` } },
+          ];
+        }),
         { name: 'Use Tag Match with agents', desc: cliDescriptionContent,
           aliases: ['shared command-line configuration', 'CLI'], render: setting => {
             if (!agentSetup) return;

@@ -84,6 +84,7 @@ test('a synced secret reference without a local key prompts for this device', ()
     ['typesafe', 'typeSafeSecretId', 'TypeSafe API key'],
     ['openrouter', 'openRouterSecretId', 'OpenRouter API key'],
     ['openai', 'openAiSecretId', 'OpenAI API key'],
+    ['gemini', 'geminiSecretId', 'Gemini API key'],
   ] as const) {
     const id = `tag-match-${provider}`;
     const unselected = setup(true, 3, 'auto', true, { provider });

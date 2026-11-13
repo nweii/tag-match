@@ -18,7 +18,7 @@ Generating tags note by note can lead to overlapping labels and a bloated tag vo
 
 ## Get started
 
-You need Obsidian 1.13.0 or later and an account with [TypeSafe](https://typesafe.ai/), [OpenRouter](https://openrouter.ai/), or [OpenAI](https://developers.openai.com/api/docs/guides/decisions). Analysis requires an API key and paid credits with your chosen provider. Jev via TypeSafe is the default model.
+You need Obsidian 1.13.0 or later and an account with [TypeSafe](https://typesafe.ai/), [OpenRouter](https://openrouter.ai/), [OpenAI](https://developers.openai.com/api/docs/guides/decisions), or [Gemini](https://aistudio.google.com/docs/decisions-api). Analysis requires an API key and paid credits with your chosen provider. Jev via TypeSafe is the default model.
 
 To review tags for your first note:
 
@@ -58,6 +58,7 @@ To change models, enter a compatible model ID in the provider's **model** field.
 | TypeSafe | `jev-latest` | [TypeSafe models and aliases](https://docs.typesafe.ai/models) |
 | OpenRouter | `~typesafe/jev-latest` | [OpenRouter Jev latest alias](https://openrouter.ai/~typesafe/jev-latest) |
 | OpenAI | `gpt-6-luna` | [OpenAI Decisions API models](https://developers.openai.com/api/docs/guides/decisions#how-decisions-work) |
+| Gemini | `gemini-decision-1` | [Gemini Decision model](https://aistudio.google.com/docs/models/gemini-decision-1) |
 
 OpenRouter routes requests to a hosting provider. Model availability also depends on your OpenRouter account's provider and privacy settings. General chat models are not supported by Tag Match's decision requests.
 
@@ -126,9 +127,9 @@ To install without the community plugin browser:
 
 ## Privacy and network access
 
-Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai`, `openrouter.ai`, or `api.openai.com`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it. There is no background vault scan sent to a model.
+Analysis sends the note title, description, existing tags, selected body text, candidate tags, tagging guidance, and relevant tag definitions to your chosen service: `api.typesafe.ai`, `openrouter.ai`, `api.openai.com`, or `generativelanguage.googleapis.com`. With OpenRouter, requests are routed to the model provider. Analysis starts only when you invoke it. There is no background vault scan sent to a model.
 
-API keys stay in Obsidian Secrets on the device where you enter them. The plugin's `data.json` stores only the selected secret's name. Synced settings may carry that name to another device, but not the key. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy) or [OpenAI's API data policies](https://developers.openai.com/api/docs/guides/your-data).
+API keys stay in Obsidian Secrets on the device where you enter them. The plugin's `data.json` stores only the selected secret's name. Synced settings may carry that name to another device, but not the key. Tag Match has no client-side telemetry. Provider data handling follows [TypeSafe's privacy policy](https://typesafe.ai/legal/privacy-policy) and, when selected, [OpenRouter's privacy policy](https://openrouter.ai/privacy), [OpenAI's API data policies](https://developers.openai.com/api/docs/guides/your-data), or the [Gemini API terms](https://ai.google.dev/gemini-api/terms).
 
 Copy buttons write to the system clipboard only when clicked. Tag Match never reads it.
 
@@ -136,6 +137,6 @@ The Obsidian plugin operates within your vault. The optional CLI reads its expli
 
 ## About
 
-Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/). It is not affiliated with Obsidian, TypeSafe, OpenRouter, or OpenAI.
+Tag Match is an independent project by [Nathan Cheng](https://nathancheng.work/). It is not affiliated with Obsidian, TypeSafe, OpenRouter, OpenAI, or Google.
 
 [Report a bug](https://github.com/nweii/tag-match/issues/new/choose) · [Security policy](./SECURITY.md) · [Third-party notices](./THIRD_PARTY_NOTICES.md) · [Buy me a coffee](https://buymeacoffee.com/nthnwei)

@@ -29,14 +29,14 @@ export default class TagMatchPlugin extends Plugin {
   private noticeRun?: BulkTagModal;
   private noticeFinished = false;
 
-  transport: Transport = async (request, apiKey, signal, endpoint) => {
+  transport: Transport = async (request, headers, signal, endpoint) => {
     signal.throwIfAborted();
     let timer: number | undefined;
     let abort: (() => void) | undefined;
     try {
       // Obsidian requestUrl cannot abort an in-flight request. Cancellation prevents subsequent batches and writes.
       const response = await Promise.race([
-        requestUrl({ url: endpoint, method: 'POST', headers: { Authorization: `Bearer ${apiKey}` },
+        requestUrl({ url: endpoint, method: 'POST', headers,
           contentType: 'application/json', body: JSON.stringify(request), throw: false }),
         new Promise<never>((_, reject) => {
           timer = window.setTimeout(() => reject(new Error('The decision provider timed out after 45 seconds.')), 45000);

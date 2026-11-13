@@ -1,6 +1,6 @@
 // Encodes tag questions for each decision API and validates OpenAI's named predicate answers.
 import { record } from './config.ts';
-import type { ProviderName } from './provider.ts';
+import type { Protocol } from './provider.ts';
 
 export interface TagQuestion {
   instructions: { question: string; tag: string; definition: string };
@@ -16,15 +16,30 @@ export interface OpenAiRequest {
   input: string;
   questions: { type: 'predicate'; name: string; instructions: string }[];
 }
-export type EvaluationRequest = SystemOneRequest | OpenAiRequest;
+export interface GeminiRequest {
+  model: string;
+  input: string;
+  questions: Record<string, { type: 'noul'; instructions: string; criteria: { true_description: string; false_description: string } }>;
+}
+export type EvaluationRequest = SystemOneRequest | OpenAiRequest | GeminiRequest;
 
-export function decisionRequest(provider: ProviderName, model: string, state: unknown, questions: TagQuestion[]): EvaluationRequest {
-  if (provider === 'openai') return {
+const questionText = ({ instructions }: TagQuestion) =>
+  `${instructions.question}\nTag: ${JSON.stringify(instructions.tag)}\nDefinition: ${instructions.definition}`;
+
+export function decisionRequest(protocol: Protocol, model: string, state: unknown, questions: TagQuestion[]): EvaluationRequest {
+  if (protocol === 'openai') return {
     model, input: JSON.stringify(state),
     questions: questions.map((question, index) => ({
       type: 'predicate', name: `tag_${index}`,
-      instructions: `${question.instructions.question}\nTag: ${JSON.stringify(question.instructions.tag)}\nDefinition: ${question.instructions.definition}\nTrue: ${question.criteria.true}\nFalse: ${question.criteria.false}`,
+      instructions: `${questionText(question)}\nTrue: ${question.criteria.true}\nFalse: ${question.criteria.false}`,
     })),
+  };
+  if (protocol === 'gemini') return {
+    model, input: JSON.stringify(state),
+    questions: Object.fromEntries(questions.map((question, index) => [`tag_${index}`, {
+      type: 'noul', instructions: questionText(question),
+      criteria: { true_description: question.criteria.true, false_description: question.criteria.false },
+    }])),
   };
   return { model, state, questions: Object.fromEntries(questions.map((question, index) => [
     `tag_${index}`, { type: 'noul', ...question },

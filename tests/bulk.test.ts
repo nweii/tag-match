@@ -75,7 +75,7 @@ test('direct bulk keeps settings, credentials, and inventory fixed across earlie
   const liveTags = tags();
   const seen: { key: string; model: string; candidates: string[] }[] = [];
   const transport: Transport = async (request, key, signal, endpoint) => {
-    seen.push({ key, model: request.model, candidates: Object.values(request.questions)
+    seen.push({ key: key.Authorization!.replace('Bearer ', ''), model: request.model, candidates: Object.values(request.questions)
       .map(question => (question as { instructions: { tag: string } }).instructions.tag) });
     liveConfig.apiKey = 'changed'; liveConfig.model = 'changed'; liveConfig.excludedTags = 'design';
     liveConfig.maxTagsToAdd = 2; liveTags[0]!.tag = 'changed'; liveTags[1]!.count = 999;
