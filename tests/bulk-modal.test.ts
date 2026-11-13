@@ -470,3 +470,22 @@ test('invalid batch numbers cannot silently start with an older valid value', as
   assert.equal(ui.all('button').find(button => button.textContent === 'Add tags to 3 notes')!.disabled, false);
   modal.dispose();
 });
+
+test('a batch can include short notes without changing the saved Skip short notes setting', async () => {
+  for (const skip of [true, false]) {
+    const { app, plugin, files, content } = fixture();
+    plugin.settings.skipShortNotes = true;
+    const saved = { ...plugin.settings };
+    const modal = new BulkTagModal(app as never, plugin as never, files.slice(0, 1));
+    modal.open();
+    const ui = controls(modal);
+    const toggle = ui.all('input').find(control => control['aria-label'] === 'Skip short notes')!;
+    assert.equal(toggle.checked, true);
+    assert.match(ui.textContent, /Skips notes under 20 words/);
+    toggle.change?.(skip ? 1 : 0);
+    await startBatch(modal);
+    assert.equal(content.get(files[0]!.path)!.includes('tags:'), !skip);
+    assert.deepEqual(plugin.settings, saved);
+    modal.dispose();
+  }
+});

@@ -183,13 +183,19 @@ export class BulkTagModal extends Modal {
       slider.setLimits(0, 100, 1).setValue(Math.round(this.config.minProbability * 100))
         .setDisplayFormat(value => `${value}%`).onChange(value => update({ minProbability: value / 100 }));
     });
+    new Setting(this.adjustments).setName('Skip short notes')
+      .setDesc(`Skip notes with fewer than ${this.config.minNoteWords} words in their description and body.`)
+      .addToggle(toggle => {
+        toggle.toggleEl.setAttribute('aria-label', 'Skip short notes');
+        toggle.setValue(this.config.skipShortNotes).onChange(value => update({ skipShortNotes: value }));
+      });
     this.maximumInput = renderWholeNumber(this.adjustments, this.config.maxTagsToAdd, 'Maximum tags per note', 1000,
       value => update(value === undefined ? {} : { maxTagsToAdd: value }));
     this.refreshSettingsSummary();
   }
 
   private refreshSettingsSummary() {
-    this.settingsSummary.setText(`${this.config.poolMode === 'specific' ? 'Only these tags · ' : ''}Minimum match score: ${Math.round(this.config.minProbability * 100)}% · Up to ${this.config.maxTagsToAdd} tags per note`);
+    this.settingsSummary.setText(`${this.config.poolMode === 'specific' ? 'Only these tags · ' : ''}Minimum match score: ${Math.round(this.config.minProbability * 100)}% · Up to ${this.config.maxTagsToAdd} tags per note${this.config.skipShortNotes ? ` · Skips notes under ${this.config.minNoteWords} words` : ''}`);
   }
 
   private showScope() {
