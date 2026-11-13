@@ -6,7 +6,7 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ### Added
 
-- Quick apply and bulk tagging skip notes with fewer than 20 words in their description and body, instead of adding tags based mostly on the title. Skipped notes make no request. Change the threshold, or turn it off with 0, in **Minimum words to add tags without review**.
+- Quick apply and bulk tagging skip notes with fewer than 20 words in their description and body, instead of adding tags based mostly on the title. Skipped notes make no request. Turn this off with **Skip short notes**, or change the cutoff in **Minimum words**.
 
 ## [0.4.2] - 2026-10-18
 

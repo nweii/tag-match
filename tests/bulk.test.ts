@@ -9,7 +9,7 @@ import type { TagCount } from '../src/core.ts';
 import { applySuggestions } from '../src/vault.ts';
 import { noteMetadata } from '../src/document.ts';
 
-const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', minWordsWithoutReview: 0, ...values });
+const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', skipShortNotes: false, ...values });
 const tags = (): TagCount[] => [{ tag: 'design', count: 3 }, { tag: 'writing', count: 2 }];
 const success: Transport = async request => ({ status: 200, json: { answers: Object.fromEntries(
   Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } });
@@ -495,14 +495,14 @@ test('direct bulk skips notes too short to tag without review before any request
   let requests = 0;
   const counting: Transport = async (request, ...rest) => { requests++; return success(request, ...rest); };
   const items = createBulkItems(fixture.files);
-  await analyzeBulkItems(fixture.app, items, config({ minWordsWithoutReview: 20 }), tags(), counting,
+  await analyzeBulkItems(fixture.app, items, config({ skipShortNotes: true }), tags(), counting,
     new AbortController().signal, true, () => {});
   assert.deepEqual(items.map(item => item.status), ['skipped', 'applied']);
   assert.match(items[0]!.message ?? '', /Fewer than 20 words/);
   assert.equal(requests, 1);
   assert.deepEqual(fixture.writes, ['long.md']);
   const reviewed = createBulkItems(fixture.files.slice(0, 1));
-  await analyzeBulkItems(fixture.app, reviewed, config({ minWordsWithoutReview: 20 }), tags(), counting,
+  await analyzeBulkItems(fixture.app, reviewed, config({ skipShortNotes: true }), tags(), counting,
     new AbortController().signal, false, () => {});
   assert.equal(reviewed[0]!.status, 'ready');
 });

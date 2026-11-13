@@ -8,7 +8,7 @@ import { DEFAULTS, type Config } from '../src/config.ts';
 import { applyReviewPlan, parseReviewPlan, quickApplyFile, reviewFile } from '../scripts/cli/cli-workflow.ts';
 import type { Transport } from '../src/client.ts';
 
-const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', minWordsWithoutReview: 0, ...values });
+const config = (values: Partial<Config> = {}): Config => ({ ...DEFAULTS, apiKey: 'test-key', poolMode: 'all', skipShortNotes: false, ...values });
 const tags = [{ tag: 'design', count: 3 }, { tag: 'writing', count: 2 }, { tag: 'private', count: 1 }];
 const transport: Transport = async request => ({ status: 200, json: {
   answers: Object.fromEntries(Object.keys(request.questions).map((key, index) =>
@@ -112,7 +112,7 @@ test('quick apply refuses notes too short to tag without review and makes no req
   const path = await fixture('Body\n');
   let requests = 0;
   const counting: Transport = async (request, ...rest) => { requests++; return transport(request, ...rest); };
-  await assert.rejects(quickApplyFile(path, tags, config({ minWordsWithoutReview: 20 }), counting), /Fewer than 20 words.*Use review/);
+  await assert.rejects(quickApplyFile(path, tags, config({ skipShortNotes: true }), counting), /Fewer than 20 words.*Use review/);
   assert.equal(requests, 0);
   assert.equal(await readFile(path, 'utf8'), 'Body\n');
 });

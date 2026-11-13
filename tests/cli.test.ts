@@ -34,7 +34,7 @@ test('help writes prose to stdout without needing config', async () => {
 test('preview preserves a saved literal percentage after exclusions and existing tags', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-test-'));
   const configPath = join(directory, 'data.json');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, poolMode: 'percent', poolPercent: 50, excludedTags: 'private/*' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, poolMode: 'percent', poolPercent: 50, excludedTags: 'private/*' }));
   const input = JSON.stringify({ note: { title: 'Example', body: 'Body', existingTags: ['existing'] }, tags: [
     { tag: 'popular', count: 10 }, { tag: 'existing', count: 9 }, { tag: 'private/one', count: 8 },
     { tag: 'middle', count: 5 }, { tag: 'rare', count: 1 },
@@ -64,7 +64,7 @@ test('preview preserves a saved literal percentage after exclusions and existing
 test('preview checks every eligible tag below the automatic 250-tag floor', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-auto-'));
   const configPath = join(directory, 'data.json');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, poolMode: 'auto', excludedTags: 'excluded' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, poolMode: 'auto', excludedTags: 'excluded' }));
   const tags = [
     { tag: 'excluded', count: 200 }, { tag: 'existing', count: 199 },
     ...Array.from({ length: 101 }, (_, index) => ({ tag: `eligible-${index}`, count: 101 - index })),
@@ -82,7 +82,7 @@ test('CLI review and apply form a snapshot-bound non-network write workflow', as
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-review-'));
   const configPath = join(directory, 'data.json');
   const notePath = join(directory, 'note.md');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, apiKey: 'test-key', poolMode: 'all' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, apiKey: 'test-key', poolMode: 'all' }));
   await writeFile(notePath, '---\ntags: [existing]\n---\nDesign note\n');
   const input = JSON.stringify({ tags: [{ tag: 'design', count: 3 }, { tag: 'writing', count: 2 }] });
   const reviewed = await cli(['review', '--note', notePath, '--config', configPath], input, true);
@@ -108,7 +108,7 @@ test('CLI quick apply writes only complete mocked recommendations', async () => 
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-quick-'));
   const configPath = join(directory, 'data.json');
   const notePath = join(directory, 'note.md');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, apiKey: 'test-key', poolMode: 'all' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, apiKey: 'test-key', poolMode: 'all' }));
   await writeFile(notePath, 'Design note\n');
   const input = JSON.stringify({ tags: [{ tag: 'design', count: 3 }, { tag: 'writing', count: 2 }] });
   const result = await cli(['quick-apply', '--note', notePath, '--config', configPath], input, true);
@@ -130,7 +130,7 @@ test('specific sets and invocation overrides work across preview, suggest, revie
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-overrides-'));
   const configPath = join(directory, 'data.json');
   const notePath = join(directory, 'note.md');
-  const saved = JSON.stringify({ apiKey: 'test-key', poolMode: 'all', minWordsWithoutReview: 0, excludedTags: 'new/*', maxTagsToAdd: 5 });
+  const saved = JSON.stringify({ apiKey: 'test-key', poolMode: 'all', skipShortNotes: false, excludedTags: 'new/*', maxTagsToAdd: 5 });
   await writeFile(configPath, saved); await writeFile(notePath, 'Synthetic note\n');
   const overrides = { poolMode: 'specific', onlyTags: 'new/topic, other', maxTagsToAdd: 2 };
   const preview = await cli(['preview', '--config', configPath], JSON.stringify({ overrides,
@@ -156,13 +156,13 @@ test('bulk defaults to an offline dry run, applies with recovery, filters report
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-command-'));
   const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
   const paths = [join(directory, 'one.md'), join(directory, 'two.md')];
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, poolMode: 'all' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, poolMode: 'all' }));
   await Promise.all(paths.map(path => writeFile(path, 'Synthetic note\n')));
   const input = JSON.stringify({ notes: paths, overrides: { poolMode: 'specific', onlyTags: 'new/topic' } });
   const preview = await cli(['bulk', '--config', configPath, '--quiet'], input);
   assert.equal(preview.code, 0, preview.stderr); assert.equal(preview.stderr, '');
   assert.equal(output(preview.stdout).mode, 'dry-run'); assert.equal(output(preview.stdout).summary.previewed, 2);
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, apiKey: 'synthetic-key', poolMode: 'all' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, apiKey: 'synthetic-key', poolMode: 'all' }));
   const applied = await cli(['bulk', '--config', configPath, '--apply', '--recovery', recovery, '--quiet', '--filter', 'applied'], input, true);
   assert.equal(applied.code, 0, applied.stderr); assert.equal(applied.stderr, '');
   assert.equal(output(applied.stdout).summary.applied, 2); assert.equal(output(applied.stdout).results.length, 2);
@@ -177,7 +177,7 @@ test('bulk partial outcomes remain valid JSON with nonzero exit and summaries re
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-partial-'));
   const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
   const good = join(directory, 'good.md'); const broken = join(directory, 'broken.md');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
   await writeFile(good, 'Good'); await writeFile(broken, '---\ntags: [broken\n---\nBody');
   const result = await cli(['bulk', '--config', configPath, '--apply', '--recovery', recovery, '--filter', 'failed'], JSON.stringify({ notes: [good, broken] }), true);
   assert.equal(result.code, 1); const report = output(result.stdout);
@@ -203,7 +203,7 @@ test('SIGINT returns a cancelled bulk report and preserves undo for completed wr
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-cli-bulk-signal-'));
   const configPath = join(directory, 'data.json'); const recovery = join(directory, 'undo.jsonl');
   const paths = [join(directory, 'one.md'), join(directory, 'two.md'), join(directory, 'three.md')];
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, apiKey: 'synthetic-key', poolMode: 'specific', onlyTags: 'design' }));
   await Promise.all(paths.map(path => writeFile(path, 'Body')));
   const result = await new Promise<{ code: number; stdout: string }>((resolveRun, reject) => {
     const child = spawn(process.execPath, ['--import', './tests/fixtures/bulk-fetch-stub.mjs', '--experimental-strip-types', 'scripts/cli/cli.ts',
@@ -229,7 +229,7 @@ test('SIGINT returns a cancelled bulk report and preserves undo for completed wr
 test('OpenAI CLI provider overrides reach native predicates for suggest, review, apply and bulk', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'tag-match-openai-cli-'));
   const configPath = join(directory, 'data.json'); const notePath = join(directory, 'Note.md');
-  await writeFile(configPath, JSON.stringify({ minWordsWithoutReview: 0, openAiApiKey: 'synthetic-key' }));
+  await writeFile(configPath, JSON.stringify({ skipShortNotes: false, openAiApiKey: 'synthetic-key' }));
   await writeFile(notePath, 'Design systems');
   const input = { overrides: { provider: 'openai', poolMode: 'specific', onlyTags: 'design, testing' } };
   const suggested = await cli(['suggest', '--config', configPath], JSON.stringify({ ...input,

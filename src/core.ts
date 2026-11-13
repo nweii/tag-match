@@ -173,10 +173,10 @@ function noteWordCount(note: Pick<Note, 'body' | 'description'>): number {
 }
 
 /** Paths that add tags without review skip short notes, whose suggestions would rest mostly on the title. */
-export function thinNoteMessage(note: Pick<Note, 'body' | 'description'>, config: Pick<Config, 'minWordsWithoutReview'>,
-  reviewAction: string): string | undefined {
-  const minimum = config.minWordsWithoutReview;
-  return minimum && noteWordCount(note) < minimum
+export function thinNoteMessage(note: Pick<Note, 'body' | 'description'>,
+  config: Pick<Config, 'skipShortNotes' | 'minNoteWords'>, reviewAction: string): string | undefined {
+  const minimum = config.minNoteWords;
+  return config.skipShortNotes && noteWordCount(note) < minimum
     ? `Fewer than ${minimum} words, too few to add tags without review. ${reviewAction}`
     : undefined;
 }

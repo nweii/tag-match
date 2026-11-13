@@ -421,13 +421,15 @@ test('nonreducing question limits and unstructured error text are not retried', 
 
 test('notes under the word minimum need review, counting description and body but not the title', () => {
   const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
-  const minimum = { minWordsWithoutReview: 20 };
+  const minimum = { skipShortNotes: true, minNoteWords: 20 };
   assert.match(thinNoteMessage({ body: words(19) }, minimum, 'Analyze it') ?? '', /Fewer than 20 words.*Analyze it/);
   assert.equal(thinNoteMessage({ body: words(20) }, minimum, 'Analyze it'), undefined);
   assert.equal(thinNoteMessage({ description: words(10), body: words(10) }, minimum, 'Analyze it'), undefined);
-  assert.equal(thinNoteMessage({ body: '' }, { minWordsWithoutReview: 0 }, 'Analyze it'), undefined);
+  assert.equal(thinNoteMessage({ body: '' }, { skipShortNotes: false, minNoteWords: 20 }, 'Analyze it'), undefined);
   // Punctuation and Markdown syntax are not words.
   assert.notEqual(thinNoteMessage({ body: '# — * [] ' + words(19) }, minimum, 'Analyze it'), undefined);
-  assert.equal(normalizeConfig({}).minWordsWithoutReview, 20);
-  assert.equal(normalizeConfig({ minWordsWithoutReview: -5 }).minWordsWithoutReview, 0);
+  assert.equal(normalizeConfig({}).skipShortNotes, true);
+  assert.equal(normalizeConfig({}).minNoteWords, 20);
+  assert.equal(normalizeConfig({ minNoteWords: -5 }).minNoteWords, 1);
+  assert.equal(normalizeConfig({ skipShortNotes: 'no' }).skipShortNotes, true);
 });

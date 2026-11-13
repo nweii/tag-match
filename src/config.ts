@@ -18,7 +18,8 @@ export interface Config {
   maxTagsToAdd: number;
   minProbability: number;
   maxBodyChars: number;
-  minWordsWithoutReview: number;
+  skipShortNotes: boolean;
+  minNoteWords: number;
   onlyTags: string;
   excludedTags: string;
   guidance: string;
@@ -31,7 +32,7 @@ export const DEFAULTS: Config = {
   openAiApiKey: '', openAiSecretId: '', openAiModel: 'gpt-6-luna',
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
-  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000, minWordsWithoutReview: 20,
+  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000, skipShortNotes: true, minNoteWords: 20,
   onlyTags: '', excludedTags: '', guidance: '', definitions: '',
 };
 
@@ -54,6 +55,7 @@ export function normalizeConfig(value: unknown): Config {
   result.openAiApiKey = result.openAiApiKey.trim();
   result.openAiSecretId = result.openAiSecretId.trim();
   result.openAiModel = result.openAiModel.trim() || DEFAULTS.openAiModel;
+  if (typeof raw.skipShortNotes === 'boolean') result.skipShortNotes = raw.skipShortNotes;
   if (raw.provider === 'typesafe' || raw.provider === 'openrouter' || raw.provider === 'openai') result.provider = raw.provider;
   if (raw.poolMode === 'auto' || raw.poolMode === 'percent' || raw.poolMode === 'count' || raw.poolMode === 'minimum' || raw.poolMode === 'all' || raw.poolMode === 'specific') {
     result.poolMode = raw.poolMode;
@@ -61,7 +63,7 @@ export function normalizeConfig(value: unknown): Config {
   const limits = {
     poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
     maxTagsToAdd: [1, 1000],
-    minProbability: [0, 1], maxBodyChars: [200, 24000], minWordsWithoutReview: [0, 100000],
+    minProbability: [0, 1], maxBodyChars: [200, 24000], minNoteWords: [1, 100000],
   } as const;
   for (const key of Object.keys(limits) as (keyof typeof limits)[]) {
     const number = raw[key];
