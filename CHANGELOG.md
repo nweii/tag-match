@@ -9,7 +9,7 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 ### Added
 
 - Google's [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api) as a provider option, with Gemini Decision 1 as its default model. When Gemini's safety filters block a note, Tag Match says so instead of showing a generic rejection.
-- When Tag Match adds tags without a review step (quick apply and bulk apply), it skips notes with fewer than 20 words in their description and body, since their tags would rest mostly on the title. Runs you review still include them. Tag Match doesn't send skipped notes to the provider. Turn this off with **Skip short notes**, or change the cutoff in **Minimum words**.
+- When Tag Match adds tags without a review step (quick apply and bulk apply), it skips notes with fewer than 20 words in their description and body, since their tags would rest mostly on the title. Runs you review still include them. Turn this off with **Skip short notes**, or change the cutoff in **Minimum words**.
 
 ## [0.4.2] - 2026-10-18
 
