@@ -378,7 +378,7 @@ export class TagMatchSettingsTab extends PluginSettingTab {
         { name: 'Minimum match score', desc: 'Applies to preselected and directly added tags.',
           aliases: ['Preselect threshold', 'suggestion threshold'], control: { type: 'slider', key: 'minProbability', min: 0, max: 1, step: 0.01,
             displayFormat: value => `${Math.round(value * 100)}%` } },
-        { name: 'Minimum words to add without review', desc: 'Quick apply and bulk tagging skip notes with fewer words in their description and body, so tags are never added from a title alone. Analyze those notes to review suggestions. Enter 0 to add tags to every note.',
+        { name: 'Minimum words to add tags without review', desc: 'Quick apply and bulk tagging skip notes with fewer words in their description and body, so tags are never added from a title alone. Analyze those notes to review their suggestions. Enter 0 to turn this off.',
           aliases: ['short notes', 'thin notes'], control: { type: 'number', key: 'minWordsWithoutReview', min: 0, max: 100000, step: 1,
             validate: value => Number.isInteger(value) && value >= 0 && value <= 100000 ? undefined : 'Enter a whole number from 0 to 100,000.' } },
       ] },

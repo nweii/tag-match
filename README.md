@@ -32,7 +32,7 @@ To review tags for your first note:
 
 To add matches without reviewing them, run **Tag Match: Match and add tags to current note**. Both commands use your tag selection settings and refuse to apply results if the note has changed.
 
-Adding tags without review skips notes whose description and body together have fewer words than **Minimum words to add without review** (20 by default), because their tags would rest mostly on the title. Analyze those notes to review their suggestions, or set the minimum to 0 to turn the check off.
+Adding tags without review skips notes whose description and body together have fewer words than **Minimum words to add tags without review** (20 by default), because their tags would rest mostly on the title. Analyze those notes to review their suggestions, or set the minimum to 0 to turn the check off.
 
 ## Tag multiple notes
 
