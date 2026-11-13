@@ -4,6 +4,8 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-13
+
 ### Added
 
 - Google's Gemini Decisions API as a provider option for single-note and bulk tagging, with Gemini Decision 1 as its default model. Notes that Gemini's safety filters block report that reason instead of a generic rejection.
@@ -57,7 +59,8 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 - Tagging dialogs previously jumped in height as content changed. They now keep a stable height and scroll longer content.
 - Note titles were clipped at the top of the single-note suggestion dialog. They now display fully, including wrapped lines.
 
-[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.2...HEAD
+[Unreleased]: https://github.com/nweii/tag-match/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/nweii/tag-match/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/nweii/tag-match/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/nweii/tag-match/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/nweii/tag-match/compare/0.3.0...0.4.0
