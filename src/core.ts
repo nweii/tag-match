@@ -190,13 +190,13 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
   const stateBytes = jsonBytes(state);
   if (stateBytes > 28000) throw new Error('Note context is too large. Reduce note characters or tagging guidance.');
   const batches: TagBatch[] = [];
-  const model = resolveProvider(config).model;
+  const { model, protocol } = resolveProvider(config);
   // Clef's serving schema caps questions at 64 (https://developers.cloudflare.com/ai/models/@cf/cloudflare/clef-flash/).
   // This also applies to the PrimeIntellect Clef route; OpenRouter itself has no universal 64-question cap.
   const maxQuestions = config.provider === 'openrouter'
     && ['cloudflare/clef', 'cloudflare/clef-flash'].includes(model) ? 64 : Infinity;
   let questions: TagQuestion[] = [];
-  let batch: TagBatch = { request: decisionRequest(config.provider, model, state, questions), tags: [] };
+  let batch: TagBatch = { request: decisionRequest(protocol, model, state, questions), tags: [] };
   for (const candidate of pool.tags) {
     const question = {
       instructions: {
@@ -213,12 +213,12 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
     if (stateBytes + questionBytes > 30000) {
       throw new Error(`Context for #${candidate.tag} is too large. Shorten its definition or the note context.`);
     }
-    let request = decisionRequest(config.provider, model, state, [...questions, question]);
+    let request = decisionRequest(protocol, model, state, [...questions, question]);
     if (batch.tags.length && (batch.tags.length >= maxQuestions || jsonBytes(request) > 55000)) {
       batches.push(batch);
       questions = [];
-      batch = { request: decisionRequest(config.provider, model, state, questions), tags: [] };
-      request = decisionRequest(config.provider, model, state, [question]);
+      batch = { request: decisionRequest(protocol, model, state, questions), tags: [] };
+      request = decisionRequest(protocol, model, state, [question]);
     }
     if (jsonBytes(request) > 55000) {
       throw new Error(`Context for #${candidate.tag} is too large. Shorten its definition or the note context.`);
@@ -231,15 +231,15 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
   return { batches, truncated: sampled.truncated, sentChars: sampled.text.length };
 }
 
-export function parseJudgments(response: unknown, tags: string[]): Judgment[] {
-  if (!record(response) || !record(response.answers)) throw new Error('Jev returned no answers. Try analyzing this note again.');
+export function parseJudgments(response: unknown, tags: string[], label = 'Jev'): Judgment[] {
+  if (!record(response) || !record(response.answers)) throw new Error(`${label} returned no answers. Try analyzing this note again.`);
   const answers = response.answers;
-  if (Object.keys(answers).length !== tags.length) throw new Error('Jev returned an unexpected number of answers. Try analyzing this note again.');
+  if (Object.keys(answers).length !== tags.length) throw new Error(`${label} returned an unexpected number of answers. Try analyzing this note again.`);
   return tags.map((tag, index) => {
     const answer = answers[`tag_${index}`];
     if (!record(answer) || answer.type !== 'noul' || typeof answer.noul !== 'number'
       || !Number.isFinite(answer.noul) || answer.noul < 0 || answer.noul > 1) {
-      throw new Error(`Jev returned an invalid probability for #${tag}. Try analyzing this note again.`);
+      throw new Error(`${label} returned an invalid probability for #${tag}. Try analyzing this note again.`);
     }
     return { tag, probability: answer.noul };
   });

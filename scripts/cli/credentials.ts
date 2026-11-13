@@ -2,13 +2,13 @@
 import { spawn } from 'node:child_process';
 import { dirname, resolve, sep } from 'node:path';
 import type { Config } from '../../src/config.ts';
+import { PROVIDERS } from '../../src/provider.ts';
 
 export type CredentialProvider = Config['provider'];
-const details = (provider: CredentialProvider) => provider === 'openai'
-  ? { key: 'openAiApiKey' as const, reference: 'openAiSecretId' as const, env: 'OPENAI_API_KEY', id: 'tag-match-openai' }
-  : provider === 'openrouter'
-  ? { key: 'openRouterApiKey' as const, reference: 'openRouterSecretId' as const, env: 'OPENROUTER_API_KEY', id: 'tag-match-openrouter' }
-  : { key: 'apiKey' as const, reference: 'typeSafeSecretId' as const, env: 'TYPESAFE_API_KEY', id: 'tag-match-typesafe' };
+const details = (provider: CredentialProvider) => {
+  const spec = PROVIDERS[provider];
+  return { key: spec.keyField, reference: spec.secretField, env: spec.env };
+};
 
 export function vaultDirectory(configPath: string): string | null {
   const absolute = resolve(configPath); const parts = absolute.split(sep);

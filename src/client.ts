@@ -7,7 +7,7 @@ import { type EvaluationRequest, type Judgment, type Note, type TagCount,
 
 export const ENDPOINT = TYPE_SAFE_ENDPOINT;
 export interface HttpResponse { status: number; json: unknown; retryAfter?: string }
-export type Transport = (request: EvaluationRequest, apiKey: string, signal: AbortSignal, endpoint: string) => Promise<HttpResponse>;
+export type Transport = (request: EvaluationRequest, headers: Record<string, string>, signal: AbortSignal, endpoint: string) => Promise<HttpResponse>;
 export type Pause = (ms: number, signal: AbortSignal) => Promise<void>;
 
 export class ProviderRequestError extends Error {
@@ -47,8 +47,22 @@ class QuestionLimitError extends ProviderRequestError {
 }
 
 function sliceRequest(request: EvaluationRequest, start: number, end: number): EvaluationRequest {
-  if ('input' in request) return { ...request, questions: request.questions.slice(start, end).map((q, i) => ({ ...q, name: `tag_${i}` })) };
+  if (Array.isArray(request.questions)) return { ...request, questions: request.questions.slice(start, end).map((q, i) => ({ ...q, name: `tag_${i}` })) } as EvaluationRequest;
   return { ...request, questions: Object.fromEntries(Object.values(request.questions).slice(start, end).map((q, i) => [`tag_${i}`, q])) };
+}
+
+// Gemini reports input safety blocks as HTTP 400 with one of these error codes.
+const SAFETY_CODES = new Set(['safety', 'prohibited_content', 'blocklist', 'image_safety', 'content_blocked']);
+function safetyBlocked(value: unknown): boolean {
+  return record(value) && record(value.error) && typeof value.error.code === 'string' && SAFETY_CODES.has(value.error.code);
+}
+
+// Jev and OpenAI report input_tokens and output_tokens; Gemini reports total_input_tokens and total_output_tokens.
+function usage(response: unknown): { input: number; output: number } | undefined {
+  if (!record(response) || !record(response.usage)) return undefined;
+  const input = response.usage.input_tokens ?? response.usage.total_input_tokens;
+  const output = response.usage.output_tokens ?? response.usage.total_output_tokens;
+  return typeof input === 'number' && typeof output === 'number' ? { input, output } : undefined;
 }
 
 const pause: Pause = (ms, signal) => new Promise((resolve, reject) => {
@@ -67,7 +81,7 @@ export async function evaluate(request: EvaluationRequest, provider: ProviderCon
     signal.throwIfAborted();
     let result: HttpResponse;
     try {
-      result = await transport(request, provider.apiKey, signal, provider.endpoint);
+      result = await transport(request, provider.headers, signal, provider.endpoint);
     } catch (error) {
       if (signal.aborted) throw error;
       throw new ProviderRequestError(`${provider.label} could not complete the request. Check your connection and try again.`, 0, { cause: error });
@@ -84,6 +98,9 @@ export async function evaluate(request: EvaluationRequest, provider: ProviderCon
     }
     const limit = [400, 422].includes(result.status) ? questionLimit(result.json) : undefined;
     if (limit) throw new QuestionLimitError(limit, provider.label, result.status);
+    if (result.status === 400 && safetyBlocked(result.json)) {
+      throw new ProviderRequestError(`${provider.label} declined this note under its safety filters. No tags were added for this note.`, result.status);
+    }
     const messages: Record<number, string> = {
       400: `${provider.label} rejected the request. Check the model and note context.`,
       404: `${provider.label} could not find the selected model. Check the model ID and access.`,
@@ -132,7 +149,8 @@ export async function suggest(note: Note, inventory: TagCount[], config: Config,
     let response: unknown;
     try {
       response = await evaluate(batch.request, provider, transport, signal);
-      judgments.push(...(provider.name === 'openai' ? parseOpenAiJudgments(response, batch.tags) : parseJudgments(response, batch.tags)));
+      judgments.push(...(provider.protocol === 'openai' ? parseOpenAiJudgments(response, batch.tags)
+        : parseJudgments(response, batch.tags, provider.protocol === 'gemini' ? provider.label : 'Jev')));
     } catch (error) {
       if (signal.aborted) throw error;
       if (error instanceof QuestionLimitError && error.limit < batch.tags.length && batch.reductions < 3) {
@@ -150,10 +168,10 @@ export async function suggest(note: Note, inventory: TagCount[], config: Config,
     }
     completedBatches++;
     if (record(response) && typeof response.model === 'string') models.add(response.model);
-    if (record(response) && record(response.usage)
-      && typeof response.usage.input_tokens === 'number' && typeof response.usage.output_tokens === 'number') {
-      inputTokens += response.usage.input_tokens;
-      outputTokens += response.usage.output_tokens;
+    const used = usage(response);
+    if (used) {
+      inputTokens += used.input;
+      outputTokens += used.output;
     } else usageComplete = false;
     onProgress({ complete: judgments.length, total: pool.tags.length });
   }

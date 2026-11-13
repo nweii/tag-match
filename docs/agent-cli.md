@@ -1,8 +1,8 @@
 # Tag Match agent CLI
 
-This guide is installed beside `tag-match.mjs` and `data.json`. Resolve those sibling paths from this file instead of guessing a plugin or vault location. Tag Match uses the saved provider, model, tagging settings, and matching Obsidian Secret reference. TypeSafe, OpenRouter, and OpenAI credentials stay separate.
+This guide is installed beside `tag-match.mjs` and `data.json`. Resolve those sibling paths from this file instead of guessing a plugin or vault location. Tag Match uses the saved provider, model, tagging settings, and matching Obsidian Secret reference. TypeSafe, OpenRouter, OpenAI, and Gemini credentials stay separate.
 
-The CLI requires Node.js 22 or later. Run the sibling CLI with `--help` first. Its help is the source of truth for command syntax, JSON input and output, network access, and file-writing behavior. Pass the sibling `data.json` as the configuration path. Network commands read the selected Obsidian Secret through the official `obsidian` command, which requires the desktop app to be running with that vault open. For standalone use, set `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY` for the selected provider. Offline `help`, `preview`, and `apply` commands do not request a credential.
+The CLI requires Node.js 22 or later. Run the sibling CLI with `--help` first. Its help is the source of truth for command syntax, JSON input and output, network access, and file-writing behavior. Pass the sibling `data.json` as the configuration path. Network commands read the selected Obsidian Secret through the official `obsidian` command, which requires the desktop app to be running with that vault open. For standalone use, set `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY` for the selected provider. Offline `help`, `preview`, and `apply` commands do not request a credential.
 
 A synced `data.json` can contain a Secret name without its key on this device. For network commands, the user can add the key in Obsidian Secrets here or supply the selected provider's environment variable.
 
@@ -25,6 +25,7 @@ Provider and model overrides use these fields. The matching credential must be a
 | `typesafe` | `model` | `TYPESAFE_API_KEY` |
 | `openrouter` | `openRouterModel` | `OPENROUTER_API_KEY` |
 | `openai` | `openAiModel` | `OPENAI_API_KEY` |
+| `gemini` | `geminiModel` | `GEMINI_API_KEY` |
 
 For example, a JSON input can include `"overrides": { "provider": "openai", "openAiModel": "gpt-6-luna" }`. In Obsidian, configure the same choices under **Settings → Tag Match → Connection and agents**. Each model field links to its provider’s compatible model IDs.
 

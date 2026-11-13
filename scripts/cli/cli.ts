@@ -35,8 +35,8 @@ Per-run options (do not change saved settings):
   --min-score NUMBER  Minimum match probability, 0 through 1
   --max-tags NUMBER   Maximum recommendations per note, 1 through 1000
   JSON input may include "overrides" with tagging settings. Flags take precedence.
-  Provider overrides: {"provider":"openai","openAiModel":"gpt-6-luna"}.
-  Credentials: TYPESAFE_API_KEY, OPENROUTER_API_KEY, or OPENAI_API_KEY for the selected provider,
+  Provider overrides: {"provider":"gemini","geminiModel":"gemini-decision-1"}.
+  Credentials: TYPESAFE_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY for the selected provider,
   or its saved Obsidian Secret.
   Specific sets override inventory selection and exclusions. Tags do not require a # prefix.
 
@@ -217,9 +217,9 @@ function vocabularyInput(value: unknown): { tags: TagCount[]; existingTags: stri
     tags: record(value) ? value.tags : undefined }).tags, existingTags };
 }
 
-export const fetchTransport: Transport = async (request, apiKey, signal, endpoint): Promise<HttpResponse> => {
+export const fetchTransport: Transport = async (request, headers, signal, endpoint): Promise<HttpResponse> => {
   const response = await fetch(endpoint, { method: 'POST', signal, headers: {
-    authorization: `Bearer ${apiKey}`, 'content-type': 'application/json',
+    ...headers, 'content-type': 'application/json',
   }, body: JSON.stringify(request) });
   let json: unknown;
   try { json = await response.json(); } catch { json = undefined; }

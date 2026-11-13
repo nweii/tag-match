@@ -41,7 +41,7 @@ test('review keeps its previewed selection while refreshing the captured secret'
   let sent: { key: string; endpoint: string; tags: string[] } | undefined;
   const app = { metadataCache: { getTags: () => counts }, secretStorage: { getSecret: () => secret } };
   const transport: Transport = async (request, key, _signal, endpoint) => {
-    sent = { key, endpoint, tags: Object.keys(request.questions) };
+    sent = { key: key.Authorization!.replace('Bearer ', ''), endpoint, tags: Object.keys(request.questions) };
     return { status: 200, json: { answers: { tag_0: { type: 'noul', noul: 0.9 } } } };
   };
   const plugin = { settings: { ...DEFAULTS, poolMode: 'all', typeSafeSecretId: 'saved-key' } as Config,

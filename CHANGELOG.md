@@ -4,6 +4,10 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ## [Unreleased]
 
+### Added
+
+- Google's Gemini Decisions API as a provider option for single-note and bulk tagging, with Gemini Decision 1 as its default model. Notes that Gemini's safety filters block report that reason instead of a generic rejection.
+
 ## [0.4.2] - 2026-10-18
 
 ### Added

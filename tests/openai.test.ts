@@ -17,9 +17,9 @@ import { bulkTargets, runCliBulk, undoCliBulk } from '../scripts/cli/cli-bulk.ts
 const config = (patch: Partial<Config> = {}): Config => ({ ...DEFAULTS, provider: 'openai', openAiApiKey: 'synthetic-openai-key',
   apiKey: 'do-not-send-typesafe', openRouterApiKey: 'do-not-send-router', poolMode: 'specific', onlyTags: 'design, testing', ...patch });
 const note = { title: 'Design testing', description: 'Synthetic fixture', body: 'Testing a design system.', existingTags: [] };
-const success: Transport = async (request, key, _signal, endpoint) => {
-  assert.equal(endpoint, OPEN_AI_ENDPOINT); assert.equal(key, 'synthetic-openai-key');
-  assert.ok('input' in request); assert.equal('state' in request, false);
+const success: Transport = async (request, headers, _signal, endpoint) => {
+  assert.equal(endpoint, OPEN_AI_ENDPOINT); assert.deepEqual(headers, { Authorization: 'Bearer synthetic-openai-key' });
+  assert.ok(Array.isArray(request.questions) && 'input' in request); assert.equal('state' in request, false);
   assert.equal(request.model, 'gpt-6-luna');
   return { status: 200, json: { model: request.model, answers: request.questions.map(question => ({
     type: 'predicate', name: question.name, probability: 0.9,
@@ -29,7 +29,7 @@ const success: Transport = async (request, key, _signal, endpoint) => {
 test('OpenAI sends native predicates with note context, definitions and guidance and retains shared ranking', async () => {
   const settings = config({ guidance: 'Prefer substantive topics.', definitions: 'design = Visual systems' });
   const result = await suggest(note, [], settings, async (request, ...args) => {
-    assert.ok('input' in request);
+    assert.ok(Array.isArray(request.questions) && 'input' in request);
     assert.match(request.input, /Synthetic fixture/); assert.match(request.input, /Prefer substantive topics/);
     assert.ok(request.questions.every(question => question.type === 'predicate'));
     assert.match(request.questions[0]!.instructions, /Visual systems/);
@@ -51,7 +51,7 @@ test('OpenAI batches bound serialized payloads and fail the whole note on a late
   await assert.rejects(suggest(note, tags, settings, async (request, ...args) => {
     const response = await success(request, ...args);
     if (++calls === 2) {
-      assert.ok('input' in request);
+      assert.ok(Array.isArray(request.questions));
       return { status: 200, json: { answers: request.questions.map(question => ({ name: question.name, type: 'refusal' })) } };
     }
     return response;

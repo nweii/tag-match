@@ -249,3 +249,15 @@ test('OpenAI CLI provider overrides reach native predicates for suggest, review,
   assert.equal(output(bulk.stdout).summary.applied, 1);
   assert.doesNotMatch(bulk.stdout, /synthetic-key/);
 });
+
+test('Gemini CLI provider override sends the API key header and text questions', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tag-match-gemini-cli-'));
+  const configPath = join(directory, 'data.json');
+  await writeFile(configPath, JSON.stringify({ geminiApiKey: 'synthetic-key' }));
+  const suggested = await cli(['suggest', '--config', configPath], JSON.stringify({
+    overrides: { provider: 'gemini', poolMode: 'specific', onlyTags: 'design, testing' },
+    note: { title: 'Example', body: 'Design systems', existingTags: [] } }), true);
+  assert.equal(suggested.code, 0, suggested.stderr);
+  assert.deepEqual(output(suggested.stdout).recommended.map(item => item.tag), ['design']);
+  assert.doesNotMatch(suggested.stdout, /synthetic-key/);
+});
