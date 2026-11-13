@@ -52,6 +52,9 @@ test('Gemini names itself when answers are malformed and reports safety blocks p
   await assert.rejects(evaluate(request, provider, async () => ({ status: 400,
     json: { error: { code: 'safety', message: 'Request blocked due to safety violations (harmful content).' } } })),
     /Gemini declined this note under its safety filters/);
+  await assert.rejects(evaluate(request, provider, async () => ({ status: 400, json: { error: { code: 400, status: 'INVALID_ARGUMENT',
+    message: 'API key not valid. Please pass a valid API key.', details: [{ reason: 'API_KEY_INVALID', domain: 'googleapis.com' }] } } })),
+    /Gemini rejected the API key/);
   await assert.rejects(evaluate(request, provider, async () => ({ status: 400, json: { error: { code: 'invalid', message: 'secret-detail' } } })),
     error => error instanceof Error && /Gemini rejected the request/.test(error.message) && !error.message.includes('secret-detail'));
 });
