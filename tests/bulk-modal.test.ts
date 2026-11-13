@@ -22,7 +22,7 @@ function fixture() {
   const locks = new Set<string>();
   const transport: Transport = async request => ({ status: 200, json: { answers: Object.fromEntries(
     Object.keys(request.questions).map(key => [key, { type: 'noul', noul: 0.9 }])) } });
-  const plugin = { settings: { ...DEFAULTS, typeSafeSecretId: 'saved-key' }, transport,
+  const plugin = { settings: { ...DEFAULTS, typeSafeSecretId: 'saved-key', skipShortNotes: false }, transport,
     beginRun: (path: string) => { if (locks.has(path)) return false; locks.add(path); return true; },
     endRun: (path: string) => { locks.delete(path); } };
   return { files, app, plugin, content, locks };
@@ -59,7 +59,7 @@ test('single-note quick apply uses its analysis settings even when saved default
     vault: { ...app.vault, configDir: 'synthetic-config', adapter: { exists: async () => false } } };
   const plugin = new TagMatchPlugin(nativeApp as never, { id: 'tag-match', version: '0.2.1' } as never);
   await plugin.onload();
-  plugin.settings = { ...DEFAULTS, poolMode: 'specific', onlyTags: 'new/topic', typeSafeSecretId: 'saved-key' };
+  plugin.settings = { ...DEFAULTS, poolMode: 'specific', onlyTags: 'new/topic', typeSafeSecretId: 'saved-key', skipShortNotes: false };
   plugin.transport = async request => {
     plugin.settings = { ...plugin.settings, poolMode: 'all', onlyTags: '', excludedTags: 'new/topic' };
     return { status: 200, json: { answers: Object.fromEntries(Object.keys(request.questions)
@@ -469,4 +469,23 @@ test('invalid batch numbers cannot silently start with an older valid value', as
   size.change?.('10');
   assert.equal(ui.all('button').find(button => button.textContent === 'Add tags to 3 notes')!.disabled, false);
   modal.dispose();
+});
+
+test('a batch can include short notes without changing the saved Skip short notes setting', async () => {
+  for (const skip of [true, false]) {
+    const { app, plugin, files, content } = fixture();
+    plugin.settings.skipShortNotes = true;
+    const saved = { ...plugin.settings };
+    const modal = new BulkTagModal(app as never, plugin as never, files.slice(0, 1));
+    modal.open();
+    const ui = controls(modal);
+    const toggle = ui.all('input').find(control => control['aria-label'] === 'Skip short notes')!;
+    assert.equal(toggle.checked, true);
+    assert.match(ui.textContent, /Skips notes under 20 words/);
+    toggle.change?.(skip ? 1 : 0);
+    await startBatch(modal);
+    assert.equal(content.get(files[0]!.path)!.includes('tags:'), !skip);
+    assert.deepEqual(plugin.settings, saved);
+    modal.dispose();
+  }
 });

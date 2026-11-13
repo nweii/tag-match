@@ -274,3 +274,11 @@ test('selecting automatic mode considers every tag in a small vocabulary', async
     .find(item => item.name === 'Default selection') as Definition;
   assert.match((automatic.desc as Fragment).textContent, /101 tags/);
 });
+
+test('the minimum word count shows only while short notes are skipped', async () => {
+  const { tab, items } = setup(true, 3, 'auto', true);
+  const minimum = items.find(item => item.name === 'Minimum words')!;
+  assert.equal(minimum.visible?.(), true);
+  await tab.setControlValue('skipShortNotes', false);
+  assert.equal(minimum.visible?.(), false);
+});

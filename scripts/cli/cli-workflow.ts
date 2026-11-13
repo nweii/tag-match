@@ -5,7 +5,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { Config } from '../../src/config.ts';
 import { record } from '../../src/config.ts';
 import { suggest, type SuggestionResult, type Transport } from '../../src/client.ts';
-import { exclusionRules, isExcluded, normalizeTag, tagKey, parseOnlyTags, type Note, type TagCount } from '../../src/core.ts';
+import { exclusionRules, isExcluded, normalizeTag, tagKey, parseOnlyTags, thinNoteMessage, type Note, type TagCount } from '../../src/core.ts';
 import { addTags, noteMetadata } from '../../src/document.ts';
 
 export interface ReviewPlan {
@@ -133,6 +133,8 @@ export async function writeNoteSnapshot(path: string, expectedHash: string, tran
 export async function quickApplyFile(path: string, tags: TagCount[], config: Config, transport: Transport,
   additionalExistingTags: string[] = [],
   signal = new AbortController().signal): Promise<{ status: 'applied' | 'no-op'; path: string; addedTags: string[]; result: SuggestionResult }> {
+  const thin = thinNoteMessage((await noteTarget(path)).note, config, 'Use review for this note instead.');
+  if (thin) throw new Error(thin);
   const plan = await reviewFile(path, tags, config, transport, additionalExistingTags, signal);
   signal.throwIfAborted();
   const applied = await applyReviewPlan(plan, plan.proposedTags.map(item => item.tag), config, signal);

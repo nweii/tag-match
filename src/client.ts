@@ -57,6 +57,12 @@ function safetyBlocked(value: unknown): boolean {
   return record(value) && record(value.error) && typeof value.error.code === 'string' && SAFETY_CODES.has(value.error.code);
 }
 
+// Google reports an invalid API key as HTTP 400 with an API_KEY_INVALID reason instead of 401.
+function keyRejected(value: unknown): boolean {
+  return record(value) && record(value.error) && Array.isArray(value.error.details)
+    && value.error.details.some(detail => record(detail) && detail.reason === 'API_KEY_INVALID');
+}
+
 // Jev and OpenAI report input_tokens and output_tokens; Gemini reports total_input_tokens and total_output_tokens.
 function usage(response: unknown): { input: number; output: number } | undefined {
   if (!record(response) || !record(response.usage)) return undefined;
@@ -98,6 +104,9 @@ export async function evaluate(request: EvaluationRequest, provider: ProviderCon
     }
     const limit = [400, 422].includes(result.status) ? questionLimit(result.json) : undefined;
     if (limit) throw new QuestionLimitError(limit, provider.label, result.status);
+    if (result.status === 400 && keyRejected(result.json)) {
+      throw new ProviderRequestError(`${provider.label} rejected the API key. Check the API key in Tag Match settings, then try again.`, 401);
+    }
     if (result.status === 400 && safetyBlocked(result.json)) {
       throw new ProviderRequestError(`${provider.label} declined this note under its safety filters. No tags were added for this note.`, result.status);
     }

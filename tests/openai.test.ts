@@ -15,7 +15,7 @@ import { withOverrides } from '../scripts/cli/cli-overrides.ts';
 import { bulkTargets, runCliBulk, undoCliBulk } from '../scripts/cli/cli-bulk.ts';
 
 const config = (patch: Partial<Config> = {}): Config => ({ ...DEFAULTS, provider: 'openai', openAiApiKey: 'synthetic-openai-key',
-  apiKey: 'do-not-send-typesafe', openRouterApiKey: 'do-not-send-router', poolMode: 'specific', onlyTags: 'design, testing', ...patch });
+  apiKey: 'do-not-send-typesafe', openRouterApiKey: 'do-not-send-router', poolMode: 'specific', onlyTags: 'design, testing', skipShortNotes: false, ...patch });
 const note = { title: 'Design testing', description: 'Synthetic fixture', body: 'Testing a design system.', existingTags: [] };
 const success: Transport = async (request, headers, _signal, endpoint) => {
   assert.equal(endpoint, OPEN_AI_ENDPOINT); assert.deepEqual(headers, { Authorization: 'Bearer synthetic-openai-key' });

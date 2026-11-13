@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { open, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import { record, type Config } from '../../src/config.ts';
-import { buildBatches, normalizeTag, noteSeed, selectCandidates, type TagCount } from '../../src/core.ts';
+import { buildBatches, normalizeTag, noteSeed, selectCandidates, thinNoteMessage, type TagCount } from '../../src/core.ts';
 import { suggest, type Transport, type Progress } from '../../src/client.ts';
 import { PROVIDERS, resolveProvider } from '../../src/provider.ts';
 import { MAX_BULK_RECOVERY_CHARACTERS, runBulkQueue, stopsBulkRun } from '../../src/bulk-queue.ts';
@@ -112,6 +112,8 @@ export async function runCliBulk(targets: BulkTarget[], tags: TagCount[], config
         item.preview = { candidateTags: pool.tags.map(tag => tag.tag), requests: prepared.batches.length,
           sentChars: prepared.sentChars, truncated: prepared.truncated };
         if (options.mode === 'dry-run') { item.status = 'previewed'; return; }
+        const thin = options.mode === 'apply' ? thinNoteMessage(captured.note, settings, 'Use review for this note instead.') : undefined;
+        if (thin) { item.status = 'skipped'; item.message = thin; return; }
         let reservation = 0;
         if (journal) {
           reservation = captured.content.length * 2;

@@ -145,6 +145,12 @@ export class Setting {
     callback(dropdown); return this;
   }
   addSlider(callback) { callback(new SliderComponent(this.controlEl)); return this; }
+  addToggle(callback) {
+    const element = this.controlEl.createEl('input');
+    const toggle = { toggleEl: element, setValue: value => { element.checked = value; return toggle; },
+      onChange: handler => { element.change = value => { element.checked = Boolean(value); handler(Boolean(value)); }; return toggle; } };
+    callback(toggle); return this;
+  }
   addText(callback) {
     const element = this.controlEl.createEl('input');
     const text = { inputEl: element, setValue: value => { element.value = value; return text; },

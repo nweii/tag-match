@@ -33,7 +33,7 @@ Invariants that span files:
 - **One run per note.** `plugin.beginRun`/`endRun` guard concurrent analyses of a file. Closing the review modal aborts its controller.
 - **CLI identity check.** `build.mjs` bundles the CLI twice: once with a fixed version to hash its content, then for real. The plugin embeds that hash (`__TAG_MATCH_CLI_IDENTITY__`) and compares it with the installed `tag-match.mjs` header to decide whether to offer a CLI update. Plugin-only version bumps therefore do not trigger an update prompt.
 - The review modal copies `plugin.settings` when it opens, so its preview and its analysis use one settings snapshot even if settings change in between.
-- Development builds register `Copy local diagnostics` and retain at most 120 capture/apply events through `App.saveLocalStorage`. Events contain random correlation IDs, build and timing data, sizes, and change flags. Never record note text, filenames, tag values, credentials, or raw error messages. Public builds do not enable diagnostics.
+- Development builds register `Copy local diagnostics` and retain at most 120 capture, apply and request events through `App.saveLocalStorage`. Events contain random correlation IDs, build and timing data, sizes, change flags, and for each provider request the provider, model ID, question count and HTTP status. Never record note text, filenames, tag values, credentials, or raw error messages. Public builds do not enable diagnostics.
 
 ## Testing UI code
 

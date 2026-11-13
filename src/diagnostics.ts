@@ -1,13 +1,14 @@
 // Retains bounded development diagnostics in device-local Obsidian storage without note text or filenames.
 import type { App, TFile } from 'obsidian';
-import { record } from './config.ts';
+import { PROVIDER_NAMES, record } from './config.ts';
 import { noteMetadata, splitDocument } from './document.ts';
+import { PROVIDERS, type ProviderName } from './provider.ts';
 
 const STORAGE_KEY = 'tag-match-dev:diagnostics';
 export const DIAGNOSTIC_LIMIT = 120;
 const changeFields = ['raw', 'body', 'description', 'tags', 'frontmatter'] as const;
 type Changes = Record<typeof changeFields[number], boolean | null>;
-interface DiagnosticEvent {
+interface NoteEvent {
   time: string;
   build: string;
   noteId: string;
@@ -16,8 +17,31 @@ interface DiagnosticEvent {
   currentCharacters: number | null;
   changed: Changes;
 }
+// One provider request: which service and model answered, how many tags it judged, and the HTTP status (0 when no response arrived).
+interface RequestEvent {
+  time: string;
+  build: string;
+  action: 'requested';
+  provider: ProviderName;
+  model: string;
+  questions: number;
+  status: number;
+  durationMs: number;
+}
+type DiagnosticEvent = NoteEvent | RequestEvent;
+
+const count = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+
+function parseRequest(value: Record<string, unknown>, time: string, build: string): RequestEvent | null {
+  if (!PROVIDER_NAMES.includes(value.provider as ProviderName) || typeof value.model !== 'string' || value.model.length > 200
+    || !count(value.questions) || !count(value.status) || !count(value.durationMs)) return null;
+  return { time, build, action: 'requested', provider: value.provider as ProviderName, model: value.model,
+    questions: value.questions, status: value.status, durationMs: value.durationMs };
+}
 
 function parseEvent(value: unknown): DiagnosticEvent | null {
+  if (record(value) && value.action === 'requested' && typeof value.time === 'string' && /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(value.time)
+    && typeof value.build === 'string' && /^(?:[a-f\d]{7,40}\+?|unknown)$/.test(value.build)) return parseRequest(value, value.time, value.build);
   if (!record(value) || typeof value.time !== 'string' || !/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(value.time)
     || typeof value.build !== 'string' || !/^(?:[a-f\d]{7,40}\+?|unknown)$/.test(value.build)
     || typeof value.noteId !== 'string' || !/^[a-f\d-]{36}$/.test(value.noteId)
@@ -79,11 +103,22 @@ export class DiagnosticLog {
     this.append(file, succeeded ? 'applied' : 'apply-failed', snapshot, current);
   }
 
-  private append(file: TFile, action: DiagnosticEvent['action'], snapshot: string, current?: string): void {
+  request(endpoint: string, model: string, questions: number, status: number, durationMs: number): void {
+    const provider = PROVIDER_NAMES.find(name => PROVIDERS[name].endpoint === endpoint);
+    if (!provider) return;
+    this.push({ time: new Date().toISOString(), build: this.build, action: 'requested', provider,
+      model: model.slice(0, 200), questions, status, durationMs: Math.max(0, Math.round(durationMs)) });
+  }
+
+  private append(file: TFile, action: NoteEvent['action'], snapshot: string, current?: string): void {
     let noteId = this.noteIds.get(file);
     if (!noteId) { noteId = crypto.randomUUID(); this.noteIds.set(file, noteId); }
-    this.events.push({ time: new Date().toISOString(), build: this.build, noteId, action,
+    this.push({ time: new Date().toISOString(), build: this.build, noteId, action,
       snapshotCharacters: snapshot.length, currentCharacters: current?.length ?? null, changed: changes(snapshot, current) });
+  }
+
+  private push(event: DiagnosticEvent): void {
+    this.events.push(event);
     this.events = this.events.slice(-DIAGNOSTIC_LIMIT);
     try { this.app.saveLocalStorage(STORAGE_KEY, this.events); this.persisted = true; }
     catch { this.persisted = false; }

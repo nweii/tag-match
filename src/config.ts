@@ -25,6 +25,8 @@ export interface Config {
   maxTagsToAdd: number;
   minProbability: number;
   maxBodyChars: number;
+  skipShortNotes: boolean;
+  minNoteWords: number;
   onlyTags: string;
   excludedTags: string;
   guidance: string;
@@ -38,7 +40,7 @@ export const DEFAULTS: Config = {
   geminiApiKey: '', geminiSecretId: '', geminiModel: 'gemini-decision-1',
   poolMode: 'auto', poolPercent: 20,
   poolCount: 100, minimumUses: 2, mostUsedPercent: 70,
-  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000,
+  maxTagsToAdd: 5, minProbability: 0.75, maxBodyChars: 16000, skipShortNotes: true, minNoteWords: 20,
   onlyTags: '', excludedTags: '', guidance: '', definitions: '',
 };
 
@@ -59,13 +61,14 @@ export function normalizeConfig(value: unknown): Config {
     result[spec.modelField] ||= DEFAULTS[spec.modelField];
   }
   if (PROVIDER_NAMES.includes(raw.provider as Config['provider'])) result.provider = raw.provider as Config['provider'];
+  if (typeof raw.skipShortNotes === 'boolean') result.skipShortNotes = raw.skipShortNotes;
   if (raw.poolMode === 'auto' || raw.poolMode === 'percent' || raw.poolMode === 'count' || raw.poolMode === 'minimum' || raw.poolMode === 'all' || raw.poolMode === 'specific') {
     result.poolMode = raw.poolMode;
   }
   const limits = {
     poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
     maxTagsToAdd: [1, 1000],
-    minProbability: [0, 1], maxBodyChars: [200, 24000],
+    minProbability: [0, 1], maxBodyChars: [200, 24000], minNoteWords: [1, 100000],
   } as const;
   for (const key of Object.keys(limits) as (keyof typeof limits)[]) {
     const number = raw[key];

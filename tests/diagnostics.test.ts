@@ -77,3 +77,17 @@ test('invalid metadata produces bounded diagnostic flags without storing parsing
   assert.deepEqual(report(log).events[0]!.changed, { raw: true, body: false, description: null, tags: null, frontmatter: true });
   assert.doesNotMatch(log.export(), /private-broken/);
 });
+
+test('diagnostics record which provider and model answered each request, and keep them across reloads', () => {
+  const saved = storage();
+  const log = new DiagnosticLog(saved, build);
+  log.request('https://generativelanguage.googleapis.com/v1beta/decisions', 'gemini-decision-1', 12, 200, 812.4);
+  log.request('https://openrouter.ai/api/alpha/decisions', '~typesafe/jev-latest', 3, 429, 40);
+  log.request('https://example.com/unknown', 'private-model', 1, 200, 5);
+  const reloaded = new DiagnosticLog(saved, build);
+  const events = (JSON.parse(reloaded.export()) as { events: Record<string, unknown>[] }).events;
+  assert.deepEqual(events.map(({ time: _time, ...event }) => event), [
+    { build, action: 'requested', provider: 'gemini', model: 'gemini-decision-1', questions: 12, status: 200, durationMs: 812 },
+    { build, action: 'requested', provider: 'openrouter', model: '~typesafe/jev-latest', questions: 3, status: 429, durationMs: 40 },
+  ]);
+});
