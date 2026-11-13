@@ -32,6 +32,8 @@ To review tags for your first note:
 
 To add matches without reviewing them, run **Tag Match: Match and add tags to current note**. Both commands use your tag selection settings and refuse to apply results if the note has changed.
 
+With **Skip short notes** on (the default), adding tags without review skips notes whose description and body together have fewer than 20 words, because their tags would rest mostly on the title. Analyze those notes to review their suggestions. Change the cutoff in **Minimum words**, or turn **Skip short notes** off.
+
 ## Tag multiple notes
 
 To apply tags to a batch:
@@ -43,7 +45,7 @@ To apply tags to a batch:
 
 Use **Run in background** to keep working. Reopen progress through the notice, desktop status bar, or **Tag Match: Show bulk tagging progress** command.
 
-**Stop** cancels remaining work. Requests already running may still use credits. Results show additions, skipped notes, and failures.
+**Stop** cancels remaining work. Requests already running may still use credits. Results show additions, skipped notes, and failures. Notes under the minimum word count are skipped without a request.
 
 **Undo additions** restores notes that haven't changed since tagging. Undo remains available until you close completed results, reload the plugin, or quit Obsidian.
 

@@ -9,6 +9,7 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 ### Added
 
 - Google's Gemini Decisions API as a provider option for single-note and bulk tagging, with Gemini Decision 1 as its default model. Notes that Gemini's safety filters block report that reason instead of a generic rejection.
+- Quick apply and bulk tagging skip notes with fewer than 20 words in their description and body, instead of adding tags based mostly on the title. Skipped notes make no request. Turn this off with **Skip short notes**, or change the cutoff in **Minimum words**.
 
 ## [0.4.2] - 2026-10-18
 

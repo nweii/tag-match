@@ -3,7 +3,8 @@ import { normalizeConfig, PROVIDER_NAMES, record, type Config } from '../../src/
 import { PROVIDERS } from '../../src/provider.ts';
 
 const ranges = { poolPercent: [1, 100], poolCount: [1, 1000000], minimumUses: [1, 1000000], mostUsedPercent: [0, 100],
-  maxTagsToAdd: [1, 1000], minProbability: [0, 1], maxBodyChars: [200, 24000] } as const;
+  maxTagsToAdd: [1, 1000], minProbability: [0, 1], maxBodyChars: [200, 24000],
+  minNoteWords: [1, 100000] } as const;
 const textKeys: string[] = ['onlyTags', 'excludedTags', 'guidance', 'definitions', ...Object.values(PROVIDERS).map(spec => spec.modelField)];
 
 export function withOverrides(config: Config, value: unknown): Config {
@@ -14,6 +15,8 @@ export function withOverrides(config: Config, value: unknown): Config {
       if (!['auto', 'all', 'percent', 'count', 'minimum', 'specific'].includes(String(setting))) throw new Error('Invalid poolMode override.');
     } else if (key === 'provider') {
       if (!PROVIDER_NAMES.includes(setting as Config['provider'])) throw new Error('Invalid provider override.');
+    } else if (key === 'skipShortNotes') {
+      if (typeof setting !== 'boolean') throw new Error('skipShortNotes must be true or false.');
     } else if (textKeys.includes(key)) {
       if (typeof setting !== 'string') throw new Error(`${key} must be text.`);
     } else if (Object.hasOwn(ranges, key)) {
