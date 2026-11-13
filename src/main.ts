@@ -10,7 +10,7 @@ import { TagMatchSettingsTab } from './settings.ts';
 import { ReviewModal } from './review.ts';
 import { BulkTagModal, filesInScope } from './bulk-modal.ts';
 import { resolveAgentCliStatus, type AgentCliStatus } from './agent-instruction.ts';
-import { enableDiagnostics } from './diagnostics.ts';
+import { diagnostics, enableDiagnostics } from './diagnostics.ts';
 
 declare const __TAG_MATCH_CLI_IDENTITY__: string;
 declare const __TAG_MATCH_BUILD__: string;
@@ -34,6 +34,8 @@ export default class TagMatchPlugin extends Plugin {
     signal.throwIfAborted();
     let timer: number | undefined;
     let abort: (() => void) | undefined;
+    const started = Date.now();
+    let status = 0;
     try {
       // Obsidian requestUrl cannot abort an in-flight request. Cancellation prevents subsequent batches and writes.
       const response = await Promise.race([
@@ -45,11 +47,13 @@ export default class TagMatchPlugin extends Plugin {
           signal.addEventListener('abort', abort, { once: true });
         }),
       ]);
+      status = response.status;
       signal.throwIfAborted();
       let json: unknown;
       try { json = response.json; } catch { json = undefined; }
       return { status: response.status, json, retryAfter: response.headers['retry-after'] };
     } finally {
+      diagnostics(this.app)?.request(endpoint, request.model, Object.keys(request.questions).length, status, Date.now() - started);
       if (timer !== undefined) window.clearTimeout(timer);
       if (abort) signal.removeEventListener('abort', abort);
     }
