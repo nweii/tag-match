@@ -16,7 +16,7 @@ The README covers user-facing behavior (commands, settings, privacy); `CONTRIBUT
   ```
 
 - `npm version <x.y.z>` bumps `package.json` and, through `version-bump.mjs`, `manifest.json` and `versions.json`. A release tag must equal the manifest version.
-- `scripts/benchmark*.mjs` make paid API requests against a real provider. Run them only when asked.
+- `scripts/benchmark*.mjs` and `scripts/eval-quality.mjs` make paid API requests against a real provider. Run them only when asked. `eval-quality.mjs` scores question wordings against the labeled notes in `scripts/eval-fixtures.json`; `--dry-run` checks it offline.
 
 ## Architecture
 

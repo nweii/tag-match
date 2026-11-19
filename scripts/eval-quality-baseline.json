@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-19",
+  "provider": "typesafe",
+  "model": "jev-1.14.0",
+  "threshold": 0.75,
+  "notes": 12,
+  "labeledTags": 62,
+  "scope": "One run per variant on scripts/eval-fixtures.json. 'evidence' is the wording src/core.ts now ships; 'should-add' is the earlier wording. Small synthetic set: differences of one tag are within noise.",
+  "results": [
+    { "variant": "should-add", "precision": 0.958, "recall": 0.885, "meanYes": 0.91, "meanNo": 0.177 },
+    { "variant": "should-add · no existing tags", "precision": 0.962, "recall": 0.962, "meanYes": 0.912, "meanNo": 0.17 },
+    { "variant": "evidence", "precision": 0.96, "recall": 0.923, "meanYes": 0.91, "meanNo": 0.132 },
+    { "variant": "evidence · no existing tags", "precision": 0.96, "recall": 0.923, "meanYes": 0.91, "meanNo": 0.131 }
+  ],
+  "passingMentions": {
+    "sourdough-log #spreadsheets": { "should-add": 0.72, "evidence": 0.18 },
+    "monthly-budget #travel": { "should-add": 0.55, "evidence": 0.2 },
+    "home-network #security": { "should-add": 0.48, "evidence": 0.12 },
+    "workout-log #sleep": { "should-add": 0.28, "evidence": 0.06 }
+  }
+}

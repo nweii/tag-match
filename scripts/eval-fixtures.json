@@ -1,0 +1,104 @@
+{
+  "about": "Synthetic labeled notes for scripts/eval-quality.mjs. yes lists tags the note should get, no lists tags it must not get. Unlisted vocabulary tags are scored but not counted.",
+  "guidance": "Tag substantial topics and functions of a note. Skip passing mentions. Do not tag from the title alone.",
+  "definitions": "design = Visual and interaction craft; use for layout, typography, color and UI critique; do not use for product strategy or roadmaps\nproduct-strategy = Decisions about what to build and why; use for roadmaps, positioning and prioritization; do not use for visual design work\nplanning = Plans, schedules and itineraries the note lays out\njournaling = First-person reflection on the writer's own days and feelings",
+  "vocabulary": ["accessibility", "design", "forms", "typography", "product-strategy", "research", "health", "fitness", "sleep", "cooking", "baking", "finance", "spreadsheets", "travel", "planning", "literature", "japan", "hiring", "meetings", "networking", "hardware", "security", "journaling", "work"],
+  "notes": [
+    {
+      "id": "signup-forms",
+      "title": "Designing accessible signup forms",
+      "existingTags": [],
+      "body": "Accessible signup forms need visible labels, clear instructions, and error messages connected to the relevant fields. Keyboard users should be able to reach every control and see where focus is. Screen readers need meaningful names and notification of validation errors. Avoid asking for unnecessary information. A short prototype can reveal confusing field order, weak contrast, and recovery problems before implementation.",
+      "yes": ["accessibility", "forms", "design"],
+      "no": ["cooking", "finance", "security", "hiring"]
+    },
+    {
+      "id": "sourdough-log",
+      "title": "Sourdough starter, week two",
+      "existingTags": [],
+      "body": "Fed the starter at 9am with equal weights of rye and bread flour. It doubled in about six hours, faster than last week because the kitchen is warmer. The loaf had an open crumb but the bottom burned, so next bake I will move the rack up and lower the oven to 230C for the last twenty minutes. I logged the feeding times in a spreadsheet, which made the pattern easier to see.",
+      "yes": ["baking", "cooking"],
+      "no": ["spreadsheets", "finance", "research"]
+    },
+    {
+      "id": "monthly-budget",
+      "title": "October budget review",
+      "existingTags": ["vacation"],
+      "body": "Spending came in 8 percent over plan, mostly groceries and a one-off car repair. Rent and utilities were flat. I moved the emergency fund contribution to the first of the month so it happens before discretionary spending. Next month: cap dining out at 200, cancel the unused streaming subscription, and set aside 150 toward the spring trip.",
+      "yes": ["finance", "planning"],
+      "no": ["travel", "cooking", "spreadsheets"]
+    },
+    {
+      "id": "roadmap-memo",
+      "title": "Why we are cutting the mobile app from Q1",
+      "existingTags": [],
+      "body": "Usage data shows 85 percent of active teams work from desktop, and the mobile app accounts for most of our crash reports. Shipping offline sync for desktop would retain more accounts than mobile parity. We will pause mobile feature work for the quarter, keep it on maintenance, and revisit after the pricing change lands. The design team will move to the sync onboarding flow.",
+      "yes": ["product-strategy", "planning"],
+      "no": ["design", "typography", "hardware"]
+    },
+    {
+      "id": "poster-critique",
+      "title": "Critique of the festival poster draft",
+      "existingTags": [],
+      "body": "The headline typeface is too condensed to read from across a room; a wider grotesk at a heavier weight would carry further. The grid breaks in the lower third where the sponsor logos crowd the dates. Pull the orange back to an accent and let the off-white background breathe. The hierarchy should go event name, dates, venue, then sponsors.",
+      "yes": ["design", "typography"],
+      "no": ["product-strategy", "forms", "accessibility"]
+    },
+    {
+      "id": "kyoto-novel",
+      "title": "Notes on The Old Capital",
+      "existingTags": ["japan"],
+      "body": "Kawabata builds the novel around seasonal festivals, and each chapter turns on a small recognition between the twin sisters. The prose is spare; most emotion sits in descriptions of kimono patterns and cedar groves. I kept wondering whether Chieko's restraint is a choice or a family inheritance. The ending refuses resolution, which felt right for a book about things that cannot be repaired.",
+      "yes": ["literature"],
+      "no": ["travel", "planning", "journaling"]
+    },
+    {
+      "id": "kyoto-itinerary",
+      "title": "Kyoto, four days in April",
+      "existingTags": [],
+      "body": "Day one: arrive at Kyoto Station, check in near Shijo, evening walk through Pontocho. Day two: Fushimi Inari at 7am before the crowds, then Tofuku-ji. Day three: day trip to Nara by the Kintetsu line. Day four: Arashiyama bamboo grove and the Okochi Sanso garden, train back to Osaka for the flight. Book the ryokan for night three by the end of January.",
+      "yes": ["travel", "planning", "japan"],
+      "no": ["literature", "finance"]
+    },
+    {
+      "id": "hiring-sync",
+      "title": "Hiring sync, backend engineer",
+      "existingTags": [],
+      "body": "Attendees: Priya, Marco, me. Two candidates passed the systems interview. Priya flagged that the take-home is taking candidates eight hours, well over the two we promise, so we will cut the second exercise. Marco will draft the offer for the stronger candidate by Friday. Open question: whether to keep the onsite or move to a final video call.",
+      "yes": ["hiring", "meetings", "work"],
+      "no": ["research", "networking", "journaling"]
+    },
+    {
+      "id": "sleep-paper",
+      "title": "Summary: sleep restriction and working memory",
+      "existingTags": [],
+      "body": "The study restricted 48 adults to five hours of sleep for a week and measured working memory each morning. Scores fell steadily and did not fully recover after two nights of normal sleep. Participants rated themselves as unimpaired by day four, which the authors call the main practical finding. A short note in the discussion says exercise did not change the effect, but the study was not designed to test that.",
+      "yes": ["research", "sleep", "health"],
+      "no": ["fitness", "journaling"]
+    },
+    {
+      "id": "workout-log",
+      "title": "Tuesday lift",
+      "existingTags": [],
+      "body": "Squat 5x5 at 90kg, last set slow but clean. Romanian deadlift 3x8 at 70kg. Pull-ups 4 sets to failure: 9, 8, 6, 6. Finished with ten minutes on the rower. Left knee felt fine today. Slept badly last night, which probably explains the slow last set.",
+      "yes": ["fitness", "health"],
+      "no": ["research", "sleep", "journaling"]
+    },
+    {
+      "id": "home-network",
+      "title": "Rebuilding the home network",
+      "existingTags": [],
+      "body": "Replaced the ISP router with a separate modem, a small router, and two mesh access points. Wired the office access point over the existing ethernet run so it does not use wireless backhaul. Gave the printer and the NAS fixed addresses. Throughput in the bedroom went from 40 to 300 megabits. While I was in the admin page I also changed the default password.",
+      "yes": ["networking", "hardware"],
+      "no": ["security", "finance", "work"]
+    },
+    {
+      "id": "deadline-journal",
+      "title": "Wednesday night",
+      "existingTags": [],
+      "body": "I couldn't settle tonight. The launch is Friday and I keep rehearsing the conversation with my manager about the slipped date, even though it hasn't happened yet. Walked for an hour, which helped a little. I want to remember that the last two deadlines felt this way and both turned out fine. Going to bed early and leaving my laptop downstairs.",
+      "yes": ["journaling"],
+      "no": ["planning", "hiring", "meetings", "fitness"]
+    }
+  ]
+}

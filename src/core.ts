@@ -218,13 +218,13 @@ export function buildBatches(note: Note, pool: CandidatePool, config: Config): {
   for (const candidate of pool.tags) {
     const question = {
       instructions: {
-        question: 'Should this tag be added to `note`, following `tagging_guidance`? Evaluate this tag independently; several tags may apply.',
+        question: 'Is the topic or function named by `tag` a substantial subject of `note`, under `tagging_guidance` and the tag `definition`? Judge this tag on its own; several tags can apply.',
         tag: candidate.tag,
         definition: definitions.get(tagKey(candidate.tag)) ?? 'Use the ordinary meaning of the tag.',
       },
       criteria: {
-        true: 'The tag describes a meaningful topic or function of the note and would help retrieve it, under the supplied tagging guidance.',
-        false: 'The connection is incidental, unsupported, or ruled out by the tagging guidance or tag definition.',
+        true: 'The note discusses this topic or serves this function in a substantial way, beyond a passing mention.',
+        false: 'The topic appears only in passing, is suggested only by the title, or is ruled out by the guidance or definition.',
       },
     };
     const questionBytes = jsonBytes(question);
