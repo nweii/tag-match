@@ -23,13 +23,14 @@ const base = normalizeConfig({ ...saved, poolMode: 'specific', onlyTags: fixture
 const config = dryRun ? base : await resolveCliCredential(base, configPath);
 const threshold = config.minProbability;
 
+// `shipped` sends the question in src/core.ts unchanged; other wordings replace its question and criteria.
 const WORDINGS = {
-  current: undefined,
-  evidence: {
-    question: 'Is the topic or function named by `tag` a substantial subject of `note`, under `tagging_guidance` and the tag `definition`? Judge this tag on its own; several tags can apply.',
+  shipped: undefined,
+  'should-add': {
+    question: 'Should this tag be added to `note`, following `tagging_guidance`? Evaluate this tag independently; several tags may apply.',
     criteria: {
-      true: 'The note discusses this topic or serves this function in a substantial way, beyond a passing mention.',
-      false: 'The topic appears only in passing, is suggested only by the title, or is ruled out by the guidance or definition.',
+      true: 'The tag describes a meaningful topic or function of the note and would help retrieve it, under the supplied tagging guidance.',
+      false: 'The connection is incidental, unsupported, or ruled out by the tagging guidance or tag definition.',
     },
   },
 };

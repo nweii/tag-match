@@ -4,6 +4,10 @@ Notable changes to Tag Match are documented here using the Keep a Changelog form
 
 ## [Unreleased]
 
+### Changed
+
+- Each tag question asks whether the tag names a substantial subject of the note, rather than whether the tag should be added. On a labeled test set this cut scores for tags mentioned only in passing (for example, 0.72 to 0.18) with the same precision and recall.
+
 ## [0.5.0] - 2026-11-13
 
 ### Added
